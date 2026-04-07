@@ -7,13 +7,18 @@
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
+    html { height: 100%; }
+
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
       background: #0f1117;
       color: #e2e8f0;
-      height: 100vh;
+      height: 100%;
+      /* Use dvh (dynamic viewport) so mobile browser chrome is excluded */
+      height: 100dvh;
       display: flex;
       flex-direction: column;
+      overflow: hidden;
     }
 
     /* ── TOP BAR ── */
@@ -95,10 +100,10 @@
     }
 
     /* ── MAIN LAYOUT ── */
-    #main { display: flex; flex: 1; overflow: hidden; position: relative; }
+    #main { display: flex; flex: 1; min-height: 0; overflow: hidden; position: relative; }
 
     /* ── MAP ── */
-    #map { flex: 1; position: relative; }
+    #map { flex: 1; min-width: 0; position: relative; }
 
     /* ── BING MAP CONTAINER ── */
     #bing-map {
@@ -296,12 +301,23 @@
 
     /* ── MOBILE ── */
     @media (max-width: 680px) {
+      #topbar {
+        padding: 8px 12px;
+        gap: 8px;
+        /* Don't wrap — keep everything on one line */
+        flex-wrap: nowrap;
+      }
+      #topbar h1 { display: none; }
+      #address-input { min-width: 0; font-size: 16px; /* prevent iOS zoom on focus */ }
+      #search-btn { padding: 8px 12px; font-size: 13px; }
+      #map-provider-wrap { display: none; } /* hide on mobile — full-screen map only */
+      #status-msg { display: none; }
       #sidebar-toggle { display: block; }
 
       #sidebar {
         position: absolute;
         right: 0; top: 0; bottom: 0;
-        width: 90vw;
+        width: 88vw;
         max-width: 340px;
         z-index: 30;
         transform: translateX(100%);
@@ -316,11 +332,11 @@
       }
       #sidebar-backdrop.visible { display: block; }
 
-      #map-provider-wrap label { display: none; }
-      #status-msg { display: none; }
-
       .stat-card .value { font-size: 18px; }
       .savings-row .s-value { font-size: 18px; }
+
+      /* Map overlay bar wraps on small screens */
+      #map-overlay-bar { font-size: 11px !important; padding: 6px 10px !important; white-space: normal !important; }
     }
   </style>
 </head>
@@ -573,7 +589,8 @@
   function initMap() {
     map = new google.maps.Map(document.getElementById('map'), {
       center: { lat: 52.6646, lng: 4.7960 },
-      zoom: 20,
+      zoom: 21,
+      maxZoom: 22,
       mapTypeId: 'satellite',
       tilt: 0,
       mapTypeControl: true,
@@ -588,6 +605,9 @@
     infoWindow = new google.maps.InfoWindow();
 
     map.addListener('tilt_changed', () => { if (map.getTilt() !== 0) map.setTilt(0); });
+
+    // Ensure map fills its container after fonts/layout settle
+    setTimeout(() => google.maps.event.trigger(map, 'resize'), 200);
 
     document.getElementById('search-btn').addEventListener('click', handleSearch);
     document.getElementById('address-input').addEventListener('keydown', e => {
@@ -616,9 +636,17 @@
       renderAll(data);
       setStatus(formatted || (lat.toFixed(5) + ', ' + lng.toFixed(5)), false);
 
+      // On mobile: close sidebar so the map is visible after search
+      if (window.innerWidth <= 680) {
+        document.getElementById('sidebar').classList.remove('open');
+        document.getElementById('sidebar-backdrop').classList.remove('visible');
+        // Trigger resize so Google Maps fills the now-visible container
+        setTimeout(() => google.maps.event.trigger(map, 'resize'), 50);
+      }
+
       // Sync Bing map centre if active
       if (currentMapProvider === 'bing' && bingMap && window.Microsoft) {
-        bingMap.setView({ center: new Microsoft.Maps.Location(lat, lng), zoom: 20 });
+        bingMap.setView({ center: new Microsoft.Maps.Location(lat, lng), zoom: 21 });
       }
     } catch (err) {
       setStatus(err.message || 'Unknown error', true);
@@ -671,7 +699,7 @@
     const center = data.center;
 
     map.setCenter({ lat: center.latitude, lng: center.longitude });
-    map.setZoom(20);
+    map.setZoom(21);
     map.setTilt(0);
 
     document.getElementById('empty-state').style.display = 'none';
