@@ -306,8 +306,32 @@
       display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #f6c90e;
     }
 
+    /* ── PERSISTENT SUMMARY BAR ── */
+    #summary-bar {
+      position: absolute;
+      bottom: 16px; left: 50%; transform: translateX(-50%);
+      z-index: 20;
+      background: rgba(26,29,39,0.93);
+      border: 1px solid #2d3148;
+      border-radius: 12px;
+      padding: 10px 20px;
+      display: none; /* shown once data loads */
+      align-items: center;
+      gap: 20px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.55);
+      font-family: sans-serif;
+      white-space: nowrap;
+      pointer-events: none;
+    }
+    .sb-item { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+    .sb-label { font-size: 10px; color: #64748b; text-transform: uppercase; letter-spacing: 0.07em; }
+    .sb-value { font-size: 16px; font-weight: 700; line-height: 1; }
+    .sb-divider { width: 1px; height: 32px; background: #2d3148; }
+
     /* ── MOBILE ── */
     @media (max-width: 680px) {
+      #summary-bar { gap: 12px; padding: 8px 14px; font-size: 12px; bottom: 12px; }
+      .sb-value { font-size: 14px; }
       #topbar {
         padding: 8px 12px;
         gap: 8px;
@@ -325,7 +349,7 @@
         right: 0; top: 0; bottom: 0;
         width: 88vw;
         max-width: 340px;
-        z-index: 30;
+        z-index: 50;
         transform: translateX(100%);
         box-shadow: -4px 0 24px rgba(0,0,0,0.6);
       }
@@ -333,7 +357,7 @@
 
       #sidebar-backdrop {
         display: none;
-        position: absolute; inset: 0; z-index: 29;
+        position: absolute; inset: 0; z-index: 49;
         background: rgba(0,0,0,0.5);
       }
       #sidebar-backdrop.visible { display: block; }
@@ -365,6 +389,24 @@
     <div id="loading-overlay">
       <div class="spinner"></div>
       <span id="loading-text">Fetching solar data…</span>
+    </div>
+
+    <!-- PERSISTENT SUMMARY BAR -->
+    <div id="summary-bar">
+      <div class="sb-item">
+        <span class="sb-label">Panels</span>
+        <span class="sb-value" id="sb-panels" style="color:#f6c90e">—</span>
+      </div>
+      <div class="sb-divider"></div>
+      <div class="sb-item">
+        <span class="sb-label">kWh / yr</span>
+        <span class="sb-value" id="sb-kwh" style="color:#60a5fa">—</span>
+      </div>
+      <div class="sb-divider"></div>
+      <div class="sb-item">
+        <span class="sb-label">Savings / yr</span>
+        <span class="sb-value" id="sb-savings" style="color:#34d399">—</span>
+      </div>
     </div>
   </div>
 
@@ -476,7 +518,7 @@
         <div class="toggle-row">
           <label for="tog-roof">Roof Outline</label>
           <label class="toggle-switch">
-            <input type="checkbox" id="tog-roof" checked />
+            <input type="checkbox" id="tog-roof" />
             <div class="toggle-track"></div><div class="toggle-knob"></div>
           </label>
         </div>
@@ -887,6 +929,13 @@
     document.getElementById('lifetime-savings').textContent = `€${lifetime.toLocaleString('en', { maximumFractionDigits: 0 })}`;
     document.getElementById('annual-kwh').textContent = kwhYear.toLocaleString('en', { maximumFractionDigits: 0 });
 
+    // Update persistent summary bar
+    const bar = document.getElementById('summary-bar');
+    document.getElementById('sb-panels').textContent = currentConfig.panelsCount;
+    document.getElementById('sb-kwh').textContent = kwhYear.toLocaleString('en', { maximumFractionDigits: 0 });
+    document.getElementById('sb-savings').textContent = `€${annual.toLocaleString('en', { maximumFractionDigits: 0 })}`;
+    bar.style.display = 'flex';
+
     renderROIChart(currentConfig.panelsCount, annual, sp.panelLifetimeYears);
   }
 
@@ -1049,9 +1098,17 @@
       const center = { lat: p.center.latitude, lng: p.center.longitude };
       const seg = segments[p.segmentIndex];
       const azimuth = seg ? seg.azimuthDegrees : 0;
-      const W = p.orientation === 'LANDSCAPE' ? pH : pW;
-      const H = p.orientation === 'LANDSCAPE' ? pW : pH;
-      const corners = rotatedRect(center, W, H, azimuth);
+
+      // panelHeightMeters is along the slope surface. Project to ground footprint
+      // by multiplying by cos(pitch). Width (across slope) is unaffected.
+      const pitch = seg ? seg.pitchDegrees : 0;
+      const cosPitch = Math.cos(pitch * Math.PI / 180);
+      // pW = across-slope width, pH = along-slope height
+      // In PORTRAIT: width across slope = pW, height along slope = pH * cosPitch
+      // In LANDSCAPE: rotated 90° so the along-slope dim becomes the width
+      const groundW = p.orientation === 'LANDSCAPE' ? pH * cosPitch : pW;
+      const groundH = p.orientation === 'LANDSCAPE' ? pW : pH * cosPitch;
+      const corners = rotatedRect(center, groundW, groundH, azimuth);
       const gradColor = panelGradientColor(p.yearlyEnergyDcKwh);
 
       const poly = new google.maps.Polygon({
@@ -1392,6 +1449,7 @@
   function clearLabelOverlays() {
     overlays.labels = [];
     hideMapOverlay();
+    document.getElementById('summary-bar').style.display = 'none';
   }
 
   // ── UTILS ─────────────────────────────────────────────────────────────────
