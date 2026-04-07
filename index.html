@@ -1,0 +1,1385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Solar Potential Explorer</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #0f1117;
+      color: #e2e8f0;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── TOP BAR ── */
+    #topbar {
+      background: #1a1d27;
+      border-bottom: 1px solid #2d3148;
+      padding: 10px 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      z-index: 10;
+    }
+    #topbar h1 {
+      font-size: 15px;
+      font-weight: 700;
+      color: #f6c90e;
+      white-space: nowrap;
+    }
+    #address-input {
+      flex: 1;
+      min-width: 160px;
+      padding: 8px 12px;
+      border-radius: 8px;
+      border: 1px solid #3a3f5c;
+      background: #252840;
+      color: #e2e8f0;
+      font-size: 14px;
+      outline: none;
+    }
+    #address-input:focus { border-color: #f6c90e; }
+    #search-btn {
+      padding: 8px 16px;
+      border-radius: 8px;
+      border: none;
+      background: #f6c90e;
+      color: #0f1117;
+      font-weight: 700;
+      font-size: 14px;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    #search-btn:hover { background: #ffe040; }
+    #search-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* Map provider selector */
+    #map-provider-wrap {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    #map-provider-wrap label { font-size: 12px; color: #94a3b8; white-space: nowrap; }
+    #map-provider {
+      padding: 6px 10px;
+      border-radius: 8px;
+      border: 1px solid #3a3f5c;
+      background: #252840;
+      color: #e2e8f0;
+      font-size: 13px;
+      cursor: pointer;
+      outline: none;
+    }
+    #map-provider:focus { border-color: #f6c90e; }
+
+    #status-msg { font-size: 12px; color: #94a3b8; min-width: 80px; }
+    #status-msg.error { color: #f87171; }
+
+    /* Hamburger for mobile */
+    #sidebar-toggle {
+      display: none;
+      background: none;
+      border: 1px solid #3a3f5c;
+      border-radius: 6px;
+      color: #e2e8f0;
+      padding: 6px 10px;
+      font-size: 18px;
+      cursor: pointer;
+      line-height: 1;
+    }
+
+    /* ── MAIN LAYOUT ── */
+    #main { display: flex; flex: 1; overflow: hidden; position: relative; }
+
+    /* ── MAP ── */
+    #map { flex: 1; position: relative; }
+
+    /* ── BING MAP CONTAINER ── */
+    #bing-map {
+      position: absolute;
+      inset: 0;
+      display: none;
+      z-index: 5;
+      background: #0f1117;
+    }
+
+    /* ── SIDEBAR ── */
+    #sidebar {
+      width: 320px;
+      background: #1a1d27;
+      border-left: 1px solid #2d3148;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      transition: transform 0.3s ease;
+    }
+    .sidebar-section {
+      border-bottom: 1px solid #2d3148;
+      padding: 12px 14px;
+    }
+    .sidebar-section h3 {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #64748b;
+      margin-bottom: 10px;
+    }
+
+    /* ── TOGGLES ── */
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 5px 0;
+      cursor: pointer;
+    }
+    .toggle-row label { font-size: 13px; color: #cbd5e1; cursor: pointer; }
+    .toggle-switch { position: relative; width: 36px; height: 20px; flex-shrink: 0; }
+    .toggle-switch input { opacity: 0; width: 0; height: 0; }
+    .toggle-track {
+      position: absolute; inset: 0;
+      background: #374151; border-radius: 20px; transition: background 0.2s;
+    }
+    .toggle-switch input:checked + .toggle-track { background: #f6c90e; }
+    .toggle-knob {
+      position: absolute; top: 3px; left: 3px;
+      width: 14px; height: 14px;
+      background: #fff; border-radius: 50%; transition: transform 0.2s;
+    }
+    .toggle-switch input:checked ~ .toggle-knob { transform: translateX(16px); }
+
+    /* ── CONFIG PRESETS ── */
+    .preset-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      margin-bottom: 10px;
+    }
+    .preset-btn {
+      padding: 8px 6px;
+      border-radius: 8px;
+      border: 2px solid #3a3f5c;
+      background: #252840;
+      color: #cbd5e1;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.15s;
+      line-height: 1.4;
+    }
+    .preset-btn:hover { border-color: #f6c90e; color: #f6c90e; }
+    .preset-btn.active { border-color: #f6c90e; background: #2e2a10; color: #f6c90e; }
+    .preset-btn .preset-panels { font-size: 13px; font-weight: 800; display: block; }
+
+    /* ── SEGMENT CONFIG ── */
+    .seg-config-item {
+      background: #252840;
+      border-radius: 8px;
+      padding: 10px 12px;
+      margin-bottom: 8px;
+    }
+    .seg-config-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 6px;
+    }
+    .seg-config-title { font-size: 13px; font-weight: 700; color: #f6c90e; }
+    .seg-config-dir { font-size: 11px; color: #64748b; }
+    .seg-config-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      color: #94a3b8;
+      margin-top: 3px;
+    }
+    .seg-config-row .highlight { color: #34d399; font-weight: 600; }
+    .seg-config-row .muted { color: #475569; }
+
+    /* ── STATS — stacked vertically ── */
+    .stat-stack { display: flex; flex-direction: column; gap: 8px; }
+    .stat-card {
+      background: #252840;
+      border-radius: 8px;
+      padding: 10px 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .stat-card .label {
+      font-size: 12px; color: #64748b;
+      text-transform: uppercase; letter-spacing: 0.06em;
+    }
+    .stat-card .value-wrap { text-align: right; }
+    .stat-card .value { font-size: 20px; font-weight: 700; color: #f6c90e; line-height: 1; }
+    .stat-card .unit { font-size: 11px; color: #94a3b8; margin-top: 2px; }
+
+    /* ── SUNSHINE CHART ── */
+    #sunshine-chart-wrap { margin-top: 4px; }
+    #sunshine-chart {
+      width: 100%;
+      height: 80px;
+      display: block;
+    }
+
+    /* ── SAVINGS ── */
+    .input-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+    .input-row label { font-size: 12px; color: #94a3b8; flex: 1; }
+    .input-row input {
+      width: 80px; padding: 5px 8px;
+      border-radius: 6px; border: 1px solid #3a3f5c;
+      background: #252840; color: #e2e8f0;
+      font-size: 13px; text-align: right;
+    }
+
+    /* Savings stacked */
+    .savings-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    .savings-row {
+      background: #252840;
+      border-radius: 8px;
+      padding: 10px 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .savings-row .s-label { font-size: 12px; color: #64748b; }
+    .savings-row .s-value { font-size: 20px; font-weight: 700; line-height: 1; }
+    .savings-row .s-unit { font-size: 11px; color: #94a3b8; text-align: right; margin-top: 2px; }
+
+    /* ── EMPTY STATE ── */
+    #empty-state {
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      height: 100%; gap: 12px;
+      color: #4b5563; font-size: 14px;
+      text-align: center; padding: 24px;
+    }
+    #empty-state svg { opacity: 0.3; }
+
+    /* ── LOADING ── */
+    #loading-overlay {
+      display: none; position: absolute; inset: 0;
+      background: rgba(15,17,23,0.7); z-index: 20;
+      align-items: center; justify-content: center;
+      flex-direction: column; gap: 12px;
+      font-size: 14px; color: #f6c90e;
+    }
+    #loading-overlay.active { display: flex; }
+    .spinner {
+      width: 36px; height: 36px;
+      border: 3px solid #2d3148; border-top-color: #f6c90e;
+      border-radius: 50%; animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── ROI CHART LEGEND ── */
+    .roi-legend {
+      display: flex; gap: 12px; margin-top: 6px; font-size: 10px; color: #64748b;
+    }
+    .roi-legend span { display: flex; align-items: center; gap: 4px; }
+    .roi-legend .dot {
+      display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #f6c90e;
+    }
+
+    /* ── MOBILE ── */
+    @media (max-width: 680px) {
+      #sidebar-toggle { display: block; }
+
+      #sidebar {
+        position: absolute;
+        right: 0; top: 0; bottom: 0;
+        width: 90vw;
+        max-width: 340px;
+        z-index: 30;
+        transform: translateX(100%);
+        box-shadow: -4px 0 24px rgba(0,0,0,0.6);
+      }
+      #sidebar.open { transform: translateX(0); }
+
+      #sidebar-backdrop {
+        display: none;
+        position: absolute; inset: 0; z-index: 29;
+        background: rgba(0,0,0,0.5);
+      }
+      #sidebar-backdrop.visible { display: block; }
+
+      #map-provider-wrap label { display: none; }
+      #status-msg { display: none; }
+
+      .stat-card .value { font-size: 18px; }
+      .savings-row .s-value { font-size: 18px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div id="topbar">
+  <h1>☀ Solar Explorer</h1>
+  <input id="address-input" type="text" placeholder="Enter address or lat, lng" />
+  <button id="search-btn">Search</button>
+  <div id="map-provider-wrap">
+    <label for="map-provider">Map:</label>
+    <select id="map-provider">
+      <option value="google">Google Maps</option>
+      <option value="bing">Bing Maps</option>
+    </select>
+  </div>
+  <span id="status-msg">Enter an address to begin</span>
+  <button id="sidebar-toggle">☰</button>
+</div>
+
+<!-- MAIN -->
+<div id="main">
+
+  <!-- MAP -->
+  <div id="map">
+    <!-- Bing maps iframe slot -->
+    <div id="bing-map"></div>
+    <div id="loading-overlay">
+      <div class="spinner"></div>
+      <span id="loading-text">Fetching solar data…</span>
+    </div>
+  </div>
+
+  <!-- Mobile backdrop -->
+  <div id="sidebar-backdrop"></div>
+
+  <!-- SIDEBAR -->
+  <div id="sidebar">
+
+    <!-- EMPTY STATE -->
+    <div id="empty-state">
+      <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <circle cx="12" cy="12" r="5"/>
+        <line x1="12" y1="1" x2="12" y2="3"/>
+        <line x1="12" y1="21" x2="12" y2="23"/>
+        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+        <line x1="1" y1="12" x2="3" y2="12"/>
+        <line x1="21" y1="12" x2="23" y2="12"/>
+        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+      </svg>
+      Search an address to see<br/>solar potential data
+    </div>
+
+    <!-- CONTENT -->
+    <div id="data-content" style="display:none">
+
+      <!-- ROI CHART -->
+      <div class="sidebar-section">
+        <h3>Return on Investment</h3>
+        <div style="font-size:11px;color:#64748b;margin-bottom:8px">
+          Install cost: <span id="roi-install-cost" style="color:#f87171;font-weight:700">—</span>
+          &nbsp;·&nbsp; Break-even: <span id="roi-payback" style="color:#34d399;font-weight:700">—</span>
+        </div>
+        <svg id="roi-chart" width="100%" style="display:block"></svg>
+        <div class="roi-legend">
+          <span><span style="display:inline-block;width:20px;height:2px;background:#60a5fa;border-radius:1px;margin-top:4px"></span>Net value</span>
+          <span><span class="dot"></span>Break-even point</span>
+        </div>
+      </div>
+
+      <!-- SAVINGS CALCULATOR -->
+      <div class="sidebar-section">
+        <h3>Savings Calculator</h3>
+        <div class="savings-stack">
+          <div class="savings-row">
+            <div class="s-label">Annual savings</div>
+            <div>
+              <div class="s-value" id="annual-savings" style="color:#34d399">—</div>
+            </div>
+          </div>
+          <div class="savings-row">
+            <div class="s-label">Lifetime savings<br><span style="font-size:10px">(<span id="lifetime-years">20</span> yrs)</span></div>
+            <div>
+              <div class="s-value" id="lifetime-savings" style="color:#60a5fa">—</div>
+            </div>
+          </div>
+          <div class="savings-row">
+            <div class="s-label">Annual kWh output</div>
+            <div>
+              <div class="s-value" id="annual-kwh" style="color:#f6c90e">—</div>
+              <div class="s-unit">kWh/yr</div>
+            </div>
+          </div>
+        </div>
+        <div class="input-row">
+          <label>Electricity price (€/kWh)</label>
+          <input type="number" id="price-per-kwh" value="0.28" step="0.01" min="0.01" />
+        </div>
+        <div class="input-row">
+          <label>System efficiency (%)</label>
+          <input type="number" id="efficiency" value="80" step="1" min="10" max="100" />
+        </div>
+      </div>
+
+      <!-- PANEL CONFIGURATION -->
+      <div class="sidebar-section">
+        <h3>Panel Configuration</h3>
+        <div class="preset-grid" id="preset-grid"></div>
+        <div id="seg-config-list"></div>
+      </div>
+
+      <!-- SUNSHINE DISTRIBUTION -->
+      <div class="sidebar-section">
+        <h3>Annual Sunshine Distribution</h3>
+        <div id="sunshine-chart-wrap">
+          <svg id="sunshine-chart"></svg>
+          <div id="sunshine-note" style="font-size:10px;color:#475569;margin-top:4px;text-align:center"></div>
+        </div>
+      </div>
+
+      <!-- KEY STATS -->
+      <div class="sidebar-section">
+        <h3>Solar Stats</h3>
+        <div class="stat-stack" id="stat-grid"></div>
+      </div>
+
+      <!-- MAP OVERLAYS -->
+      <div class="sidebar-section">
+        <h3>Map Overlays</h3>
+        <div class="toggle-row">
+          <label for="tog-panels">Solar Panels</label>
+          <label class="toggle-switch">
+            <input type="checkbox" id="tog-panels" checked />
+            <div class="toggle-track"></div><div class="toggle-knob"></div>
+          </label>
+        </div>
+        <div class="toggle-row">
+          <label for="tog-roof">Roof Outline</label>
+          <label class="toggle-switch">
+            <input type="checkbox" id="tog-roof" checked />
+            <div class="toggle-track"></div><div class="toggle-knob"></div>
+          </label>
+        </div>
+        <div class="toggle-row">
+          <label for="tog-stats">Stats Label</label>
+          <label class="toggle-switch">
+            <input type="checkbox" id="tog-stats" checked />
+            <div class="toggle-track"></div><div class="toggle-knob"></div>
+          </label>
+        </div>
+        <div class="toggle-row">
+          <label for="tog-flux">Solar Flux Heatmap</label>
+          <label class="toggle-switch">
+            <input type="checkbox" id="tog-flux" />
+            <div class="toggle-track"></div><div class="toggle-knob"></div>
+          </label>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+  const API_KEY = 'AIzaSyDMpo4xVLbEj0G1l_9WaaDW4kTpIg7TZaw';
+  const BING_KEY = 'AgP-S1UVpTi0XAknPYeYcEWfKiD6oMGFbz7Jkg2ZbxcRm6cYQ8P6sZhKh7YgvXUV'; // placeholder — replace with real key
+
+  let map, geocoder, infoWindow;
+  let bingMap = null;
+  let currentMapProvider = 'google';
+  let solarData = null;
+  let overlays = { panels: [], roof: [], labels: [], flux: null };
+  let currentConfig = null;
+
+  // ── MOBILE SIDEBAR TOGGLE ─────────────────────────────────────────────────
+  document.getElementById('sidebar-toggle').addEventListener('click', () => {
+    document.getElementById('sidebar').classList.toggle('open');
+    document.getElementById('sidebar-backdrop').classList.toggle('visible');
+  });
+  document.getElementById('sidebar-backdrop').addEventListener('click', () => {
+    document.getElementById('sidebar').classList.remove('open');
+    document.getElementById('sidebar-backdrop').classList.remove('visible');
+  });
+
+  // ── MAP PROVIDER SWITCH ───────────────────────────────────────────────────
+  document.getElementById('map-provider').addEventListener('change', function() {
+    currentMapProvider = this.value;
+    switchMapProvider(this.value);
+  });
+
+  function switchMapProvider(provider) {
+    const bingMapEl = document.getElementById('bing-map');
+
+    if (provider === 'bing') {
+      bingMapEl.style.display = 'block';
+      if (window.Microsoft && Microsoft.Maps) {
+        // SDK already loaded — init or re-centre
+        if (!bingMap) {
+          _createBingMap();
+        } else if (solarData) {
+          const c = solarData.center;
+          bingMap.setView({ center: new Microsoft.Maps.Location(c.latitude, c.longitude), zoom: 20 });
+        }
+      } else {
+        // Load SDK; callback will create the map
+        loadBingMapsScript();
+      }
+    } else {
+      bingMapEl.style.display = 'none';
+    }
+  }
+
+  function loadBingMapsScript() {
+    if (document.getElementById('bing-maps-script')) return;
+    const s = document.createElement('script');
+    s.id = 'bing-maps-script';
+    // Microsoft will call window.bingMapsReady when ready
+    s.src = `https://www.bing.com/api/maps/mapcontrol?key=${BING_KEY}&callback=bingMapsReady`;
+    s.async = true;
+    document.head.appendChild(s);
+  }
+
+  window.bingMapsReady = function() {
+    _createBingMap();
+  };
+
+  function _createBingMap() {
+    if (bingMap) return; // already created
+    const container = document.getElementById('bing-map');
+    const lat = solarData ? solarData.center.latitude  : 52.6646;
+    const lng = solarData ? solarData.center.longitude : 4.7960;
+
+    bingMap = new Microsoft.Maps.Map(container, {
+      center: new Microsoft.Maps.Location(lat, lng),
+      zoom: 20,
+      mapTypeId: Microsoft.Maps.MapTypeId.aerial,
+      credentials: BING_KEY,
+      // Hide Bing's own UI chrome so it matches our dark theme
+      showDashboard: false,
+      showMapTypeSelector: false,
+      showScalebar: false,
+      showLocateMeButton: false,
+    });
+  }
+
+  // ── INIT GOOGLE MAP ───────────────────────────────────────────────────────
+  function initMap() {
+    map = new google.maps.Map(document.getElementById('map'), {
+      center: { lat: 52.6646, lng: 4.7960 },
+      zoom: 20,
+      mapTypeId: 'satellite',
+      tilt: 0,
+      mapTypeControl: true,
+      mapTypeControlOptions: {
+        style: google.maps.MapTypeControlStyle.HORIZONTAL_BAR,
+        position: google.maps.ControlPosition.TOP_LEFT
+      },
+      streetViewControl: false,
+      fullscreenControl: false,
+    });
+    geocoder = new google.maps.Geocoder();
+    infoWindow = new google.maps.InfoWindow();
+
+    map.addListener('tilt_changed', () => { if (map.getTilt() !== 0) map.setTilt(0); });
+
+    document.getElementById('search-btn').addEventListener('click', handleSearch);
+    document.getElementById('address-input').addEventListener('keydown', e => {
+      if (e.key === 'Enter') handleSearch();
+    });
+    document.getElementById('tog-panels').addEventListener('change', updateOverlayVisibility);
+    document.getElementById('tog-roof').addEventListener('change', updateOverlayVisibility);
+    document.getElementById('tog-stats').addEventListener('change', updateOverlayVisibility);
+    document.getElementById('tog-flux').addEventListener('change', updateOverlayVisibility);
+    document.getElementById('price-per-kwh').addEventListener('input', updateSavings);
+    document.getElementById('efficiency').addEventListener('input', updateSavings);
+  }
+
+  // ── SEARCH ────────────────────────────────────────────────────────────────
+  async function handleSearch() {
+    const raw = document.getElementById('address-input').value.trim();
+    if (!raw) return;
+    setStatus('Geocoding…', false);
+    document.getElementById('search-btn').disabled = true;
+    try {
+      const { lat, lng, formatted } = await resolveLatLng(raw);
+      setStatus(`Found: ${formatted || (lat.toFixed(5) + ', ' + lng.toFixed(5))} — fetching solar data…`, false);
+      const data = await fetchSolarData(lat, lng);
+      console.log('[Solar] Solar API response:', data);
+      solarData = data;
+      renderAll(data);
+      setStatus(formatted || (lat.toFixed(5) + ', ' + lng.toFixed(5)), false);
+
+      // Sync Bing map centre if active
+      if (currentMapProvider === 'bing' && bingMap && window.Microsoft) {
+        bingMap.setView({ center: new Microsoft.Maps.Location(lat, lng), zoom: 20 });
+      }
+    } catch (err) {
+      setStatus(err.message || 'Unknown error', true);
+      console.error('[Solar] ERROR:', err);
+    } finally {
+      document.getElementById('search-btn').disabled = false;
+    }
+  }
+
+  async function resolveLatLng(input) {
+    const latLngRe = /^-?\d+(\.\d+)?\s*,\s*-?\d+(\.\d+)?$/;
+    if (latLngRe.test(input)) {
+      const [lat, lng] = input.split(',').map(Number);
+      return { lat, lng, formatted: null };
+    }
+    for (let i = 0; i < 50; i++) {
+      if (geocoder) break;
+      await new Promise(r => setTimeout(r, 100));
+    }
+    if (!geocoder) throw new Error('Google Maps failed to load');
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error('Geocoding timed out')), 8000);
+      geocoder.geocode({ address: input }, (results, status) => {
+        clearTimeout(timer);
+        if (status === 'OK' && results[0]) {
+          const loc = results[0].geometry.location;
+          resolve({ lat: loc.lat(), lng: loc.lng(), formatted: results[0].formatted_address });
+        } else {
+          reject(new Error(`Geocoding failed: ${status}`));
+        }
+      });
+    });
+  }
+
+  // ── SOLAR API ─────────────────────────────────────────────────────────────
+  async function fetchSolarData(lat, lng) {
+    const url = `https://solar.googleapis.com/v1/buildingInsights:findClosest?location.latitude=${lat}&location.longitude=${lng}&requiredQuality=LOW&key=${API_KEY}`;
+    const resp = await fetch(url);
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({}));
+      throw new Error((err.error && err.error.message) || `API error ${resp.status}`);
+    }
+    return resp.json();
+  }
+
+  // ── RENDER ALL ────────────────────────────────────────────────────────────
+  function renderAll(data) {
+    clearOverlays();
+    const sp = data.solarPotential;
+    const center = data.center;
+
+    map.setCenter({ lat: center.latitude, lng: center.longitude });
+    map.setZoom(20);
+    map.setTilt(0);
+
+    document.getElementById('empty-state').style.display = 'none';
+    document.getElementById('data-content').style.display = 'block';
+
+    const configs = sp.solarPanelConfigs || [];
+    const segmentGroups = {};
+    configs.forEach((c, idx) => {
+      if (c.roofSegmentSummaries && c.roofSegmentSummaries.length === 1) {
+        const si = c.roofSegmentSummaries[0].segmentIndex;
+        if (!segmentGroups[si]) segmentGroups[si] = [];
+        segmentGroups[si].push(idx);
+      }
+    });
+
+    const presetButtons = [];
+    const sizeLabels = ['Small', 'Medium', 'Large', 'Max'];
+    Object.keys(segmentGroups).sort().forEach(si => {
+      const idxs = segmentGroups[si];
+      const n = idxs.length;
+      const picks = [
+        idxs[0],
+        idxs[Math.round(n * 0.33)],
+        idxs[Math.round(n * 0.66)],
+        idxs[n - 1],
+      ].filter((v, i, arr) => arr.indexOf(v) === i);
+      picks.forEach((configIdx, pi) => {
+        presetButtons.push({ label: sizeLabels[pi], configIdx, segmentIndex: parseInt(si) });
+      });
+    });
+
+    const defaultBtn = presetButtons[presetButtons.length - 1];
+    currentConfig = configs[defaultBtn.configIdx];
+
+    renderPresets(presetButtons, configs, defaultBtn.configIdx);
+    renderSegmentConfig(currentConfig, sp.roofSegmentStats);
+    renderStats(data);
+    renderSunshineChart(sp.wholeRoofStats.sunshineQuantiles);
+    updateSavings();
+
+    drawRoofBbox(data.boundingBox);
+    drawFluxOverlay(data);
+    drawPanels(sp.solarPanels || [], currentConfig.panelsCount);
+    drawLabel(data, currentConfig);
+    updateOverlayVisibility();
+  }
+
+  // ── PRESET BUTTONS ────────────────────────────────────────────────────────
+  function renderPresets(buttons, configs, activeConfigIdx) {
+    const grid = document.getElementById('preset-grid');
+    const bySegment = {};
+    buttons.forEach(b => {
+      if (!bySegment[b.segmentIndex]) bySegment[b.segmentIndex] = [];
+      bySegment[b.segmentIndex].push(b);
+    });
+
+    const sp = solarData.solarPotential;
+    const dirs = deg => { const d = ['N','NE','E','SE','S','SW','W','NW']; return d[Math.round(deg/45)%8]; };
+
+    let html = '';
+    Object.keys(bySegment).sort().forEach(si => {
+      const seg = sp.roofSegmentStats[parseInt(si)];
+      const dir = seg ? `Roof ${parseInt(si)+1} — ${dirs(seg.azimuthDegrees)} facing` : `Roof ${parseInt(si)+1}`;
+      html += `<div style="grid-column:1/-1;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.08em;padding:4px 0 2px">${dir}</div>`;
+      bySegment[si].forEach(btn => {
+        const c = configs[btn.configIdx];
+        const isActive = btn.configIdx === activeConfigIdx;
+        html += `<button class="preset-btn${isActive ? ' active' : ''}" data-config-idx="${btn.configIdx}">
+          <span style="font-size:10px;font-weight:700">${btn.label}</span>
+          <span class="preset-panels">${c.panelsCount} panels</span>
+        </button>`;
+      });
+    });
+    grid.innerHTML = html;
+
+    grid.querySelectorAll('.preset-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        selectConfig(parseInt(btn.dataset.configIdx));
+      });
+    });
+  }
+
+  function selectConfig(configIdx) {
+    const sp = solarData.solarPotential;
+    const configs = sp.solarPanelConfigs || [];
+    currentConfig = configs[configIdx];
+
+    document.querySelectorAll('.preset-btn').forEach(b => {
+      b.classList.toggle('active', parseInt(b.dataset.configIdx) === configIdx);
+    });
+
+    renderSegmentConfig(currentConfig, sp.roofSegmentStats);
+    updateSavings();
+    clearPanelOverlays();
+    drawPanels(sp.solarPanels || [], currentConfig.panelsCount);
+    clearLabelOverlays();
+    drawLabel(solarData, currentConfig);
+    updateOverlayVisibility();
+  }
+
+  // ── SEGMENT CONFIG ────────────────────────────────────────────────────────
+  function renderSegmentConfig(config, roofSegments) {
+    const directions = deg => {
+      const dirs = ['N','NE','E','SE','S','SW','W','NW'];
+      return dirs[Math.round(deg / 45) % 8];
+    };
+
+    const list = document.getElementById('seg-config-list');
+    if (!config || !roofSegments) { list.innerHTML = ''; return; }
+
+    list.innerHTML = roofSegments.map((seg, i) => {
+      const summary = config.roofSegmentSummaries
+        ? config.roofSegmentSummaries.find(s => s.segmentIndex === i)
+        : null;
+
+      const dir = directions(seg.azimuthDegrees);
+      const pitch = seg.pitchDegrees.toFixed(1);
+      const area = seg.stats.areaMeters2.toFixed(1);
+      const maxSun = Math.max(...seg.stats.sunshineQuantiles).toFixed(0);
+
+      const panelsHtml = summary
+        ? `<span class="highlight">${summary.panelsCount} panels · ${summary.yearlyEnergyDcKwh.toFixed(0)} kWh/yr</span>`
+        : `<span class="muted">No panels in this config</span>`;
+
+      return `<div class="seg-config-item">
+        <div class="seg-config-header">
+          <span class="seg-config-title">Roof ${i + 1} — ${dir} facing</span>
+          <span class="seg-config-dir">${seg.azimuthDegrees.toFixed(0)}° · ${pitch}° pitch</span>
+        </div>
+        <div class="seg-config-row"><span>Output</span>${panelsHtml}</div>
+        <div class="seg-config-row"><span>Area</span><span>${area} m²</span></div>
+        <div class="seg-config-row"><span>Max sunshine</span><span>${maxSun} hrs/yr</span></div>
+      </div>`;
+    }).join('');
+  }
+
+  // ── SUNSHINE CHART ────────────────────────────────────────────────────────
+  function renderSunshineChart(quantiles) {
+    const svg = document.getElementById('sunshine-chart');
+    const W = 288, H = 72;
+    svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+
+    const n = quantiles.length;
+    const maxVal = quantiles[n - 1];
+    const minVal = quantiles[0];
+    const barW = Math.floor(W / n) - 2;
+    const chartH = H - 14;
+
+    let content = '';
+    quantiles.forEach((v, i) => {
+      const barH = Math.max(3, (v / maxVal) * chartH);
+      const x = i * (W / n) + 1;
+      const y = chartH - barH;
+      const t = (v - minVal) / (maxVal - minVal);
+      const r = Math.round(246 * t + 59 * (1 - t));
+      const g = Math.round(201 * t + 130 * (1 - t));
+      const b = Math.round(14 * t + 246 * (1 - t));
+      content += `<rect x="${x}" y="${y}" width="${barW}" height="${barH}" rx="2" fill="rgb(${r},${g},${b})" opacity="0.9"/>`;
+      if (i === 0 || i === Math.floor(n/2) || i === n-1) {
+        content += `<text x="${x + barW/2}" y="${y - 2}" text-anchor="middle" font-size="8" fill="#94a3b8">${v.toFixed(0)}</text>`;
+      }
+      const pct = Math.round((i / (n - 1)) * 100);
+      if (i === 0 || i === Math.floor(n/4) || i === Math.floor(n/2) || i === Math.floor(3*n/4) || i === n-1) {
+        content += `<text x="${x + barW/2}" y="${H - 1}" text-anchor="middle" font-size="8" fill="#475569">${pct}%</text>`;
+      }
+    });
+
+    svg.innerHTML = content;
+    document.getElementById('sunshine-note').textContent =
+      `Annual sunshine hours across roof pixels — ${minVal.toFixed(0)} to ${maxVal.toFixed(0)} hrs/yr`;
+  }
+
+  // ── STATS — vertical stack ────────────────────────────────────────────────
+  function renderStats(data) {
+    const sp = data.solarPotential;
+    const cards = [
+      { label: 'Max Panels', value: sp.maxArrayPanelsCount, unit: 'panels' },
+      { label: 'Roof Area', value: sp.maxArrayAreaMeters2.toFixed(0), unit: 'm²' },
+      { label: 'Max Sunshine', value: sp.maxSunshineHoursPerYear.toFixed(0), unit: 'hrs/year' },
+      { label: 'CO₂ Factor', value: sp.carbonOffsetFactorKgPerMwh.toFixed(0), unit: 'kg/MWh' },
+      { label: 'Panel Power', value: sp.panelCapacityWatts, unit: 'W each' },
+      { label: 'Lifetime', value: sp.panelLifetimeYears, unit: 'years' },
+    ];
+    document.getElementById('stat-grid').innerHTML = cards.map(c => `
+      <div class="stat-card">
+        <div class="label">${c.label}</div>
+        <div class="value-wrap">
+          <div class="value">${c.value}</div>
+          <div class="unit">${c.unit}</div>
+        </div>
+      </div>`).join('');
+    document.getElementById('lifetime-years').textContent = sp.panelLifetimeYears;
+  }
+
+  // ── SAVINGS ───────────────────────────────────────────────────────────────
+  function updateSavings() {
+    if (!solarData || !currentConfig) return;
+    const sp = solarData.solarPotential;
+    const price = parseFloat(document.getElementById('price-per-kwh').value) || 0.28;
+    const eff = (parseFloat(document.getElementById('efficiency').value) || 80) / 100;
+    const kwhYear = currentConfig.yearlyEnergyDcKwh * eff;
+    const annual = kwhYear * price;
+    const lifetime = annual * sp.panelLifetimeYears;
+
+    document.getElementById('annual-savings').textContent = `€${annual.toLocaleString('en', { maximumFractionDigits: 0 })}`;
+    document.getElementById('lifetime-savings').textContent = `€${lifetime.toLocaleString('en', { maximumFractionDigits: 0 })}`;
+    document.getElementById('annual-kwh').textContent = kwhYear.toLocaleString('en', { maximumFractionDigits: 0 });
+
+    renderROIChart(currentConfig.panelsCount, annual, sp.panelLifetimeYears);
+    if (solarData && currentConfig) showSummaryOverlay(solarData, currentConfig);
+  }
+
+  // ── ROI CHART — single net-value line ─────────────────────────────────────
+  // Y = cumulative savings − installation cost
+  // Starts negative (cost), crosses zero at break-even, goes positive (profit).
+  function renderROIChart(panelCount, annualSavings, lifetimeYears) {
+    const svg = document.getElementById('roi-chart');
+    if (!svg) return;
+
+    const installCost = panelCount * (400 - 5 * panelCount) + 1200;
+    document.getElementById('roi-install-cost').textContent = `€${installCost.toLocaleString('en')}`;
+
+    // Net value at year y = (annualSavings * y) - installCost
+    // Payback = installCost / annualSavings
+    const paybackYear = annualSavings > 0 ? installCost / annualSavings : null;
+    const withinLifetime = paybackYear !== null && paybackYear <= lifetimeYears;
+
+    document.getElementById('roi-payback').textContent = withinLifetime
+      ? `${paybackYear.toFixed(1)} yrs`
+      : `>${lifetimeYears} yrs`;
+
+    const W = 292, H = 160;
+    const padL = 52, padR = 12, padT = 14, padB = 26;
+    const chartW = W - padL - padR;
+    const chartH = H - padT - padB;
+
+    svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+    svg.setAttribute('height', H);
+
+    // Net value range: min = -installCost (year 0), max = net at lifetime
+    const netAtLifetime = annualSavings * lifetimeYears - installCost;
+    const yMin = -installCost;
+    const yMax = Math.max(netAtLifetime, 0);
+    const yRange = yMax - yMin || 1;
+
+    const xScale = y => padL + (y / lifetimeYears) * chartW;
+    // yMin maps to bottom (padT + chartH), yMax maps to top (padT)
+    const yScale = v => padT + chartH - ((v - yMin) / yRange) * chartH;
+
+    // Zero axis y-position
+    const zeroY = yScale(0);
+
+    // ── Grid lines ──
+    let gridLines = '';
+    const gridSteps = 5;
+    for (let i = 0; i <= gridSteps; i++) {
+      const v = yMin + (i / gridSteps) * yRange;
+      const y = yScale(v);
+      const absV = Math.abs(v);
+      const sign = v < 0 ? '-' : v > 0 ? '+' : '';
+      const label = absV >= 1000 ? `${sign}€${(absV/1000).toFixed(0)}k` : `${sign}€${absV.toFixed(0)}`;
+      const isZero = Math.abs(v) < yRange * 0.02;
+      gridLines += `<line x1="${padL}" y1="${y}" x2="${W - padR}" y2="${y}"
+        stroke="${isZero ? '#3a3f5c' : '#2d3148'}" stroke-width="${isZero ? 1.5 : 1}"/>`;
+      gridLines += `<text x="${padL - 4}" y="${y + 3.5}" text-anchor="end" font-size="8"
+        fill="${isZero ? '#94a3b8' : '#475569'}">${label}</text>`;
+    }
+
+    // Zero line (prominent)
+    gridLines += `<line x1="${padL}" y1="${zeroY}" x2="${W - padR}" y2="${zeroY}"
+      stroke="#3a3f5c" stroke-width="1.5" stroke-dasharray="4,3"/>`;
+
+    // ── X-axis labels ──
+    let xLabels = '';
+    const xTicks = [0, 5, 10, 15, lifetimeYears].filter((v, i, a) => a.indexOf(v) === i);
+    xTicks.forEach(yr => {
+      if (withinLifetime && Math.abs(yr - paybackYear) < 1.5) return;
+      const x = xScale(yr);
+      xLabels += `<text x="${x}" y="${H - 6}" text-anchor="middle" font-size="8" fill="#475569">${yr}yr</text>`;
+    });
+
+    // ── Net value line ──
+    let pts = '';
+    for (let yr = 0; yr <= lifetimeYears; yr++) {
+      const netV = annualSavings * yr - installCost;
+      const x = xScale(yr);
+      const y = yScale(netV);
+      pts += (yr === 0 ? `M${x},${y}` : ` L${x},${y}`);
+    }
+
+    // ── Area fill — negative (red-tinted) below zero, positive (green-tinted) above ──
+    // Build two clip regions: below zero and above zero
+    const x0 = xScale(0), xEnd = xScale(lifetimeYears);
+    let areaPath = '';
+
+    if (withinLifetime) {
+      const bx = xScale(paybackYear);
+      const by = yScale(0); // should equal zeroY
+
+      // Negative area (year 0 → payback)
+      const negPts = `M${x0},${yScale(-installCost)} L${bx},${by} L${bx},${zeroY} L${x0},${zeroY} Z`;
+      areaPath += `<path d="${negPts}" fill="#f87171" opacity="0.08"/>`;
+
+      // Positive area (payback → lifetime)
+      let posD = `M${bx},${zeroY}`;
+      for (let yr = Math.ceil(paybackYear); yr <= lifetimeYears; yr++) {
+        posD += ` L${xScale(yr)},${yScale(annualSavings * yr - installCost)}`;
+      }
+      posD += ` L${xEnd},${zeroY} Z`;
+      areaPath += `<path d="${posD}" fill="#34d399" opacity="0.1"/>`;
+    } else {
+      // All negative or no break-even
+      const allNegD = `M${x0},${yScale(-installCost)} ${pts.slice(1)} L${xEnd},${zeroY} L${x0},${zeroY} Z`;
+      areaPath += `<path d="${allNegD}" fill="#f87171" opacity="0.08"/>`;
+    }
+
+    // ── Phase labels ──
+    let phaseLabels = '';
+    if (withinLifetime && paybackYear > 2) {
+      const midNegX = xScale(paybackYear / 2);
+      phaseLabels += `<text x="${midNegX}" y="${padT + 10}" text-anchor="middle" font-size="8" fill="#f87171" opacity="0.7">Cost phase</text>`;
+      if (lifetimeYears - paybackYear > 2) {
+        const midPosX = xScale((paybackYear + lifetimeYears) / 2);
+        phaseLabels += `<text x="${midPosX}" y="${padT + 10}" text-anchor="middle" font-size="8" fill="#34d399" opacity="0.7">Profit phase</text>`;
+      }
+    }
+
+    // ── Break-even marker ──
+    let breakEvenMark = '';
+    if (withinLifetime) {
+      const bx = xScale(paybackYear);
+      breakEvenMark += `<line x1="${bx}" y1="${padT}" x2="${bx}" y2="${H - padB}"
+        stroke="#f6c90e" stroke-width="1" stroke-dasharray="3,3" opacity="0.6"/>`;
+      breakEvenMark += `<circle cx="${bx}" cy="${zeroY}" r="5" fill="#f6c90e" stroke="#0f1117" stroke-width="1.5"/>`;
+      breakEvenMark += `<text x="${bx}" y="${H - 6}" text-anchor="middle" font-size="8" fill="#f6c90e" font-weight="700">${paybackYear.toFixed(1)}yr</text>`;
+    }
+
+    // ── Axis labels ──
+    const axisLabels = `
+      <text x="${padL - 4}" y="${padT - 4}" text-anchor="end" font-size="8" fill="#475569">€</text>
+      <text x="${W - padR}" y="${H - 6}" text-anchor="end" font-size="8" fill="#475569">years</text>
+    `;
+
+    svg.innerHTML = areaPath + gridLines + xLabels + axisLabels + phaseLabels +
+      `<path d="${pts}" fill="none" stroke="#60a5fa" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>` +
+      breakEvenMark;
+  }
+
+  // ── PANEL COLOR SCALE ─────────────────────────────────────────────────────
+  function panelColor(kwh) {
+    const t = Math.min(1, Math.max(0, kwh / 450));
+    const r = Math.round(249 + (34  - 249) * t);
+    const g = Math.round(115 + (197 - 115) * t);
+    const b = Math.round(22  + (94  - 22)  * t);
+    return `rgb(${r},${g},${b})`;
+  }
+
+  let selectedPoly = null;
+
+  // ── DRAW PANELS ───────────────────────────────────────────────────────────
+  function drawPanels(panels, count) {
+    const shown = panels.slice(0, count);
+    const segments = solarData.solarPotential.roofSegmentStats || [];
+    const pW = solarData.solarPotential.panelWidthMeters  || 1.045;
+    const pH = solarData.solarPotential.panelHeightMeters || 1.879;
+
+    shown.forEach((p, i) => {
+      const center = { lat: p.center.latitude, lng: p.center.longitude };
+      const seg = segments[p.segmentIndex];
+      const azimuth = seg ? seg.azimuthDegrees : 0;
+      const W = p.orientation === 'LANDSCAPE' ? pH : pW;
+      const H = p.orientation === 'LANDSCAPE' ? pW : pH;
+      const corners = rotatedRect(center, W, H, azimuth);
+      const fillColor = panelColor(p.yearlyEnergyDcKwh);
+
+      const poly = new google.maps.Polygon({
+        paths: corners,
+        map: map,
+        fillColor,
+        fillOpacity: 0.85,
+        strokeColor: '#000',
+        strokeWeight: 0.5,
+        clickable: true,
+        zIndex: 1,
+      });
+      poly._fillColor = fillColor;
+
+      poly.addListener('click', () => {
+        if (selectedPoly === poly) {
+          poly.setOptions({ strokeColor: '#000', strokeWeight: 0.5, zIndex: 1 });
+          selectedPoly = null;
+          if (solarData && currentConfig) showSummaryOverlay(solarData, currentConfig);
+          return;
+        }
+        if (selectedPoly) {
+          selectedPoly.setOptions({ strokeColor: '#000', strokeWeight: 0.5, zIndex: 1 });
+        }
+        selectedPoly = poly;
+        poly.setOptions({ strokeColor: '#f6c90e', strokeWeight: 3, zIndex: 10 });
+        showPanelInfo(p, i + 1);
+      });
+
+      overlays.panels.push(poly);
+    });
+  }
+
+  function showPanelInfo(p, num) {
+    const seg = (solarData.solarPotential.roofSegmentStats || [])[p.segmentIndex];
+    const dirs = deg => { const d=['N','NE','E','SE','S','SW','W','NW']; return d[Math.round(deg/45)%8]; };
+    const dir = seg ? dirs(seg.azimuthDegrees) : '—';
+    setMapOverlay(`
+      <span style="font-weight:700;color:#f6c90e">Panel #${num}</span>
+      &nbsp;·&nbsp; ${p.yearlyEnergyDcKwh.toFixed(1)} kWh/yr
+      &nbsp;·&nbsp; Segment ${p.segmentIndex + 1} (${dir})
+      &nbsp;·&nbsp; ${p.orientation}
+    `, true);
+  }
+
+  function setMapOverlay(html, showClose) {
+    let el = document.getElementById('map-overlay-bar');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'map-overlay-bar';
+      el.style.cssText = `
+        position:absolute; bottom:16px; left:50%; transform:translateX(-50%);
+        z-index:100; background:rgba(26,29,39,0.92); border:1px solid #2d3148;
+        border-radius:10px; padding:8px 14px; font-family:sans-serif; font-size:12px;
+        color:#e2e8f0; white-space:nowrap; box-shadow:0 4px 16px rgba(0,0,0,0.5);
+        display:flex; align-items:center; gap:8px; max-width:90vw; overflow:hidden;
+      `;
+      document.getElementById('map').appendChild(el);
+    }
+    const closeBtn = showClose
+      ? `<span style="cursor:pointer;color:#64748b;font-size:11px;margin-left:4px" id="map-overlay-close">✕</span>`
+      : '';
+    el.innerHTML = html + closeBtn;
+    if (showClose) {
+      document.getElementById('map-overlay-close').addEventListener('click', () => {
+        if (selectedPoly) {
+          selectedPoly.setOptions({ strokeColor: '#000', strokeWeight: 0.5, zIndex: 1 });
+          selectedPoly = null;
+        }
+        if (solarData && currentConfig) showSummaryOverlay(solarData, currentConfig);
+      });
+    }
+  }
+
+  function showSummaryOverlay(data, config) {
+    const price = parseFloat(document.getElementById('price-per-kwh').value) || 0.28;
+    const eff = (parseFloat(document.getElementById('efficiency').value) || 80) / 100;
+    const annual = (config.yearlyEnergyDcKwh * eff * price).toFixed(0);
+    setMapOverlay(`
+      <span style="color:#f6c90e;font-weight:700">☀ ${config.panelsCount} panels</span>
+      &nbsp;·&nbsp; ${config.yearlyEnergyDcKwh.toFixed(0)} kWh/yr
+      &nbsp;·&nbsp; <span style="color:#34d399">€${parseInt(annual).toLocaleString()}/yr</span>
+    `, false);
+  }
+
+  function rotatedRect(center, wM, hM, azimuthDeg) {
+    const latM = 1 / 111320;
+    const lngM = 1 / (111320 * Math.cos(center.lat * Math.PI / 180));
+    const rad = azimuthDeg * Math.PI / 180;
+    const cosA = Math.cos(rad), sinA = Math.sin(rad);
+    const hw = wM / 2, hh = hM / 2;
+    return [
+      { dN:  hh * cosA - hw * sinA,  dE:  hh * sinA + hw * cosA },
+      { dN:  hh * cosA + hw * sinA,  dE:  hh * sinA - hw * cosA },
+      { dN: -hh * cosA + hw * sinA,  dE: -hh * sinA - hw * cosA },
+      { dN: -hh * cosA - hw * sinA,  dE: -hh * sinA + hw * cosA },
+    ].map(({ dN, dE }) => ({
+      lat: center.lat + dN * latM,
+      lng: center.lng + dE * lngM,
+    }));
+  }
+
+  // ── SOLAR FLUX HEATMAP ────────────────────────────────────────────────────
+  async function drawFluxOverlay(data) {
+    if (overlays.flux) { overlays.flux.setMap(null); overlays.flux = null; }
+
+    const GT = window.GeoTIFF;
+    if (!GT || typeof GT.fromArrayBuffer !== 'function') {
+      console.error('[Flux] GeoTIFF.js not loaded');
+      return;
+    }
+
+    const c = data.center;
+    const layerUrl = `https://solar.googleapis.com/v1/dataLayers:get`
+      + `?location.latitude=${c.latitude}&location.longitude=${c.longitude}`
+      + `&radiusMeters=100&view=FULL_LAYERS&requiredQuality=LOW&key=${API_KEY}`;
+
+    let layerData;
+    try {
+      const resp = await fetch(layerUrl);
+      if (!resp.ok) { console.warn('[Flux] dataLayers error:', await resp.json().catch(() => ({}))); return; }
+      layerData = await resp.json();
+    } catch (e) { console.warn('[Flux] fetch error', e); return; }
+
+    const fluxUrl = layerData.annualFluxUrl;
+    const maskUrl = layerData.maskUrl;
+    if (!fluxUrl) { console.warn('[Flux] no annualFluxUrl'); return; }
+    if (!maskUrl) { console.warn('[Flux] no maskUrl'); return; }
+
+    const addKey = url => url.includes('key=') ? url : url + `&key=${API_KEY}`;
+    let fluxBuf, maskBuf;
+    try {
+      [fluxBuf, maskBuf] = await Promise.all([
+        fetch(addKey(fluxUrl)).then(r => { if (!r.ok) throw new Error('flux ' + r.status); return r.arrayBuffer(); }),
+        fetch(addKey(maskUrl)).then(r => { if (!r.ok) throw new Error('mask ' + r.status); return r.arrayBuffer(); }),
+      ]);
+    } catch (e) { console.warn('[Flux] tiff fetch error', e); return; }
+
+    let fluxPixels, maskPixels, width, height, imageBounds;
+    try {
+      const [fluxTiff, maskTiff] = await Promise.all([
+        GT.fromArrayBuffer(fluxBuf),
+        GT.fromArrayBuffer(maskBuf),
+      ]);
+      const fluxImg = await fluxTiff.getImage();
+      const maskImg = await maskTiff.getImage();
+      width  = fluxImg.getWidth();
+      height = fluxImg.getHeight();
+
+      const [fluxRasters, maskRasters] = await Promise.all([
+        fluxImg.readRasters(),
+        maskImg.readRasters(),
+      ]);
+      fluxPixels = fluxRasters[0];
+      maskPixels = maskRasters[0];
+
+      const origin = fluxImg.getOrigin();
+      const res    = fluxImg.getResolution();
+      const xWest  = origin[0];
+      const yNorth = origin[1];
+      const xEast  = xWest  + res[0] * width;
+      const ySouth = yNorth + res[1] * height;
+
+      function mercatorToLatLng(x, y) {
+        const lng = (x / 20037508.34) * 180;
+        const lat = (Math.atan(Math.exp((y / 20037508.34) * Math.PI)) * 360 / Math.PI) - 90;
+        return { lat, lng };
+      }
+
+      let sw, ne;
+      if (Math.abs(xWest) > 1000) {
+        sw = mercatorToLatLng(xWest, ySouth);
+        ne = mercatorToLatLng(xEast, yNorth);
+      } else {
+        sw = { lat: ySouth, lng: xWest };
+        ne = { lat: yNorth, lng: xEast };
+      }
+
+      imageBounds = new google.maps.LatLngBounds(
+        new google.maps.LatLng(sw.lat, sw.lng),
+        new google.maps.LatLng(ne.lat, ne.lng)
+      );
+    } catch (e) { console.error('[Flux] decode error:', e); return; }
+
+    function heatColor(t) {
+      t = Math.max(0, Math.min(1, t));
+      const stops = [
+        [0,    [100,   0,   0]],
+        [0.4,  [180,  30,   0]],
+        [0.7,  [220,  100,  0]],
+        [1.0,  [255,  220,  0]],
+      ];
+      let lo = stops[0], hi = stops[stops.length - 1];
+      for (let i = 0; i < stops.length - 1; i++) {
+        if (t >= stops[i][0] && t <= stops[i+1][0]) { lo = stops[i]; hi = stops[i+1]; break; }
+      }
+      const s = hi[0] === lo[0] ? 0 : (t - lo[0]) / (hi[0] - lo[0]);
+      return [
+        Math.round(lo[1][0] + (hi[1][0] - lo[1][0]) * s),
+        Math.round(lo[1][1] + (hi[1][1] - lo[1][1]) * s),
+        Math.round(lo[1][2] + (hi[1][2] - lo[1][2]) * s),
+      ];
+    }
+
+    let min = Infinity, max = -Infinity;
+    for (let i = 0; i < fluxPixels.length; i++) {
+      if (!maskPixels[i]) continue;
+      const v = fluxPixels[i];
+      if (v < -1000 || isNaN(v)) continue;
+      if (v < min) min = v;
+      if (v > max) max = v;
+    }
+    const range = max - min || 1;
+
+    const canvas = document.createElement('canvas');
+    canvas.width = width; canvas.height = height;
+    const ctx = canvas.getContext('2d');
+    const imgData = ctx.createImageData(width, height);
+
+    for (let i = 0; i < fluxPixels.length; i++) {
+      const idx = i * 4;
+      if (!maskPixels[i]) { imgData.data[idx + 3] = 0; continue; }
+      const v = fluxPixels[i];
+      if (v < -1000 || isNaN(v)) { imgData.data[idx + 3] = 0; continue; }
+      const [r, g, b] = heatColor((v - min) / range);
+      imgData.data[idx]     = r;
+      imgData.data[idx + 1] = g;
+      imgData.data[idx + 2] = b;
+      imgData.data[idx + 3] = 230;
+    }
+    ctx.putImageData(imgData, 0, 0);
+
+    const dataUrl = canvas.toDataURL('image/png');
+    overlays.flux = new google.maps.GroundOverlay(dataUrl, imageBounds, { opacity: 1.0, clickable: false });
+
+    const show = document.getElementById('tog-flux').checked;
+    overlays.flux.setMap(show ? map : null);
+  }
+
+  // ── ROOF BOUNDING BOX ─────────────────────────────────────────────────────
+  function drawRoofBbox(bbox) {
+    if (!bbox) return;
+    const corners = [
+      { lat: bbox.ne.latitude, lng: bbox.sw.longitude },
+      { lat: bbox.ne.latitude, lng: bbox.ne.longitude },
+      { lat: bbox.sw.latitude, lng: bbox.ne.longitude },
+      { lat: bbox.sw.latitude, lng: bbox.sw.longitude },
+    ];
+    const poly = new google.maps.Polygon({
+      paths: corners,
+      map: map,
+      fillColor: '#3b82f6',
+      fillOpacity: 0.06,
+      strokeColor: '#3b82f6',
+      strokeWeight: 2,
+      clickable: false,
+    });
+    overlays.roof.push(poly);
+  }
+
+  // ── COLOR SCALE LEGEND ────────────────────────────────────────────────────
+  function drawColorLegend() {
+    let el = document.getElementById('color-legend');
+    if (el) return;
+    el = document.createElement('div');
+    el.id = 'color-legend';
+    el.style.cssText = `
+      position:absolute; right:12px; top:50%; transform:translateY(-50%);
+      z-index:100; background:rgba(26,29,39,0.88); border:1px solid #2d3148;
+      border-radius:10px; padding:10px 8px; display:flex; flex-direction:column;
+      align-items:center; gap:4px; box-shadow:0 4px 16px rgba(0,0,0,0.4);
+      font-family:sans-serif;
+    `;
+    el.innerHTML = `
+      <div style="font-size:9px;color:#94a3b8;margin-bottom:2px">450</div>
+      <div style="width:14px;height:140px;border-radius:4px;background:linear-gradient(to bottom, rgb(34,197,94), rgb(249,115,22))"></div>
+      <div style="font-size:9px;color:#94a3b8;margin-top:2px">0</div>
+      <div style="font-size:8px;color:#64748b;margin-top:4px;writing-mode:vertical-rl;transform:rotate(180deg);letter-spacing:0.05em">kWh/yr</div>
+    `;
+    document.getElementById('map').appendChild(el);
+  }
+
+  function drawLabel(data, config) {
+    if (!config) return;
+    showSummaryOverlay(data, config);
+    drawColorLegend();
+  }
+
+  // ── OVERLAY VISIBILITY ────────────────────────────────────────────────────
+  function updateOverlayVisibility() {
+    const showPanels = document.getElementById('tog-panels').checked;
+    const showRoof   = document.getElementById('tog-roof').checked;
+    const showStats  = document.getElementById('tog-stats').checked;
+    const showFlux   = document.getElementById('tog-flux').checked;
+    overlays.panels.forEach(p => p.setMap(showPanels ? map : null));
+    overlays.roof.forEach(r => r.setMap(showRoof ? map : null));
+    const bar = document.getElementById('map-overlay-bar');
+    if (bar) bar.style.display = showStats ? 'flex' : 'none';
+    if (overlays.flux) overlays.flux.setMap(showFlux ? map : null);
+  }
+
+  // ── CLEAR ─────────────────────────────────────────────────────────────────
+  function clearOverlays() {
+    clearPanelOverlays();
+    overlays.roof.forEach(r => r.setMap(null));
+    overlays.roof = [];
+    if (overlays.flux) { overlays.flux.setMap(null); overlays.flux = null; }
+    clearLabelOverlays();
+  }
+  function clearPanelOverlays() {
+    overlays.panels.forEach(p => p.setMap(null));
+    overlays.panels = [];
+    selectedPoly = null;
+  }
+  function clearLabelOverlays() {
+    overlays.labels = [];
+    const bar = document.getElementById('map-overlay-bar');
+    if (bar) bar.remove();
+    const legend = document.getElementById('color-legend');
+    if (legend) legend.remove();
+  }
+
+  // ── UTILS ─────────────────────────────────────────────────────────────────
+  function setStatus(msg, isError) {
+    const el = document.getElementById('status-msg');
+    el.textContent = msg;
+    el.className = isError ? 'error' : '';
+  }
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/geotiff@2.1.3/dist-browser/geotiff.js"></script>
+<script
+  src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDMpo4xVLbEj0G1l_9WaaDW4kTpIg7TZaw&callback=initMap"
+  async defer>
+</script>
+
+</body>
+</html>
