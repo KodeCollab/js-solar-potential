@@ -65,23 +65,8 @@
     #search-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
     /* Map provider selector */
-    #map-provider-wrap {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-    #map-provider-wrap label { font-size: 12px; color: #94a3b8; white-space: nowrap; }
-    #map-provider {
-      padding: 6px 10px;
-      border-radius: 8px;
-      border: 1px solid #3a3f5c;
-      background: #252840;
-      color: #e2e8f0;
-      font-size: 13px;
-      cursor: pointer;
-      outline: none;
-    }
-    #map-provider:focus { border-color: #f6c90e; }
+    /* suppress any remaining Google Maps layer / rotate controls */
+    .gm-style-cc, .gm-bundled-control { display: none !important; }
 
     #status-msg { font-size: 12px; color: #94a3b8; min-width: 80px; }
     #status-msg.error { color: #f87171; }
@@ -332,7 +317,6 @@
       #topbar h1 { display: none; }
       #address-input { min-width: 0; font-size: 16px; /* prevent iOS zoom on focus */ }
       #search-btn { padding: 8px 12px; font-size: 13px; }
-      #map-provider-wrap { display: none; } /* hide on mobile — full-screen map only */
       #status-msg { display: none; }
       #sidebar-toggle { display: block; }
 
@@ -369,13 +353,6 @@
   <h1>☀ Solar Explorer</h1>
   <input id="address-input" type="text" placeholder="Enter address or lat, lng" />
   <button id="search-btn">Search</button>
-  <div id="map-provider-wrap">
-    <label for="map-provider">Map:</label>
-    <select id="map-provider">
-      <option value="google">Google Maps</option>
-      <option value="bing">Bing Maps</option>
-    </select>
-  </div>
   <span id="status-msg">Enter an address to begin</span>
   <button id="sidebar-toggle">☰</button>
 </div>
@@ -385,8 +362,6 @@
 
   <!-- MAP -->
   <div id="map">
-    <!-- Bing maps iframe slot -->
-    <div id="bing-map"></div>
     <div id="loading-overlay">
       <div class="spinner"></div>
       <span id="loading-text">Fetching solar data…</span>
@@ -505,20 +480,6 @@
             <div class="toggle-track"></div><div class="toggle-knob"></div>
           </label>
         </div>
-        <div class="toggle-row">
-          <label for="tog-stats">Stats Label</label>
-          <label class="toggle-switch">
-            <input type="checkbox" id="tog-stats" checked />
-            <div class="toggle-track"></div><div class="toggle-knob"></div>
-          </label>
-        </div>
-        <div class="toggle-row">
-          <label for="tog-flux">Solar Flux Heatmap</label>
-          <label class="toggle-switch">
-            <input type="checkbox" id="tog-flux" />
-            <div class="toggle-track"></div><div class="toggle-knob"></div>
-          </label>
-        </div>
       </div>
 
     </div>
@@ -527,11 +488,8 @@
 
 <script>
   const API_KEY = 'AIzaSyDMpo4xVLbEj0G1l_9WaaDW4kTpIg7TZaw';
-  const BING_KEY = 'AgP-S1UVpTi0XAknPYeYcEWfKiD6oMGFbz7Jkg2ZbxcRm6cYQ8P6sZhKh7YgvXUV'; // placeholder — replace with real key
 
-  let map, geocoder, infoWindow;
-  let bingMap = null;
-  let currentMapProvider = 'google';
+  let map, geocoder;
   let solarData = null;
   let overlays = { panels: [], roof: [], labels: [], flux: null };
   let currentConfig = null;
@@ -545,67 +503,6 @@
     document.getElementById('sidebar').classList.remove('open');
     document.getElementById('sidebar-backdrop').classList.remove('visible');
   });
-
-  // ── MAP PROVIDER SWITCH ───────────────────────────────────────────────────
-  document.getElementById('map-provider').addEventListener('change', function() {
-    currentMapProvider = this.value;
-    switchMapProvider(this.value);
-  });
-
-  function switchMapProvider(provider) {
-    const bingMapEl = document.getElementById('bing-map');
-
-    if (provider === 'bing') {
-      bingMapEl.style.display = 'block';
-      if (window.Microsoft && Microsoft.Maps) {
-        // SDK already loaded — init or re-centre
-        if (!bingMap) {
-          _createBingMap();
-        } else if (solarData) {
-          const c = solarData.center;
-          bingMap.setView({ center: new Microsoft.Maps.Location(c.latitude, c.longitude), zoom: 20 });
-        }
-      } else {
-        // Load SDK; callback will create the map
-        loadBingMapsScript();
-      }
-    } else {
-      bingMapEl.style.display = 'none';
-    }
-  }
-
-  function loadBingMapsScript() {
-    if (document.getElementById('bing-maps-script')) return;
-    const s = document.createElement('script');
-    s.id = 'bing-maps-script';
-    // Microsoft will call window.bingMapsReady when ready
-    s.src = `https://www.bing.com/api/maps/mapcontrol?key=${BING_KEY}&callback=bingMapsReady`;
-    s.async = true;
-    document.head.appendChild(s);
-  }
-
-  window.bingMapsReady = function() {
-    _createBingMap();
-  };
-
-  function _createBingMap() {
-    if (bingMap) return; // already created
-    const container = document.getElementById('bing-map');
-    const lat = solarData ? solarData.center.latitude  : 52.6646;
-    const lng = solarData ? solarData.center.longitude : 4.7960;
-
-    bingMap = new Microsoft.Maps.Map(container, {
-      center: new Microsoft.Maps.Location(lat, lng),
-      zoom: 20,
-      mapTypeId: Microsoft.Maps.MapTypeId.aerial,
-      credentials: BING_KEY,
-      // Hide Bing's own UI chrome so it matches our dark theme
-      showDashboard: false,
-      showMapTypeSelector: false,
-      showScalebar: false,
-      showLocateMeButton: false,
-    });
-  }
 
   // ── INIT GOOGLE MAP ───────────────────────────────────────────────────────
   function initMap() {
@@ -631,23 +528,7 @@
       const lat = place.geometry.location.lat();
       const lng = place.geometry.location.lng();
       document.getElementById('address-input').value = place.formatted_address;
-      setStatus('Fetching solar data…', false);
-      document.getElementById('search-btn').disabled = true;
-      try {
-        const data = await fetchSolarData(lat, lng);
-        solarData = data;
-        renderAll(data);
-        setStatus(place.formatted_address, false);
-        if (window.innerWidth <= 680) {
-          document.getElementById('sidebar').classList.remove('open');
-          document.getElementById('sidebar-backdrop').classList.remove('visible');
-          setTimeout(() => google.maps.event.trigger(map, 'resize'), 50);
-        }
-      } catch (err) {
-        setStatus(err.message || 'Unknown error', true);
-      } finally {
-        document.getElementById('search-btn').disabled = false;
-      }
+      await runSearch(lat, lng, place.formatted_address);
     });
     geocoder = new google.maps.Geocoder();
     infoWindow = new google.maps.InfoWindow();
@@ -676,26 +557,26 @@
     setStatus('Geocoding…', false);
     document.getElementById('search-btn').disabled = true;
     try {
-      const { lat, lng, formatted } = await resolveLatLng(raw);
-      setStatus(`Found: ${formatted || (lat.toFixed(5) + ', ' + lng.toFixed(5))} — fetching solar data…`, false);
-      const data = await fetchSolarData(lat, lng);
-      console.log('[Solar] Solar API response:', data);
-      solarData = data;
-      renderAll(data);
-      setStatus(formatted || (lat.toFixed(5) + ', ' + lng.toFixed(5)), false);
-
-      // On mobile: close sidebar so the map is visible after search
-      if (window.innerWidth <= 680) {
-        document.getElementById('sidebar').classList.remove('open');
-        document.getElementById('sidebar-backdrop').classList.remove('visible');
-        // Trigger resize so Google Maps fills the now-visible container
-        setTimeout(() => google.maps.event.trigger(map, 'resize'), 50);
+      const latLngRe = /^-?\d+(\.\d+)?\s*,\s*-?\d+(\.\d+)?$/;
+      let lat, lng, formatted;
+      if (latLngRe.test(raw)) {
+        [lat, lng] = raw.split(',').map(Number);
+        formatted = null;
+      } else {
+        for (let i = 0; i < 50; i++) { if (geocoder) break; await new Promise(r => setTimeout(r, 100)); }
+        if (!geocoder) throw new Error('Google Maps failed to load');
+        ({ lat, lng, formatted } = await new Promise((resolve, reject) => {
+          const timer = setTimeout(() => reject(new Error('Geocoding timed out')), 8000);
+          geocoder.geocode({ address: raw }, (results, status) => {
+            clearTimeout(timer);
+            if (status === 'OK' && results[0]) {
+              const loc = results[0].geometry.location;
+              resolve({ lat: loc.lat(), lng: loc.lng(), formatted: results[0].formatted_address });
+            } else reject(new Error(`Geocoding failed: ${status}`));
+          });
+        }));
       }
-
-      // Sync Bing map centre if active
-      if (currentMapProvider === 'bing' && bingMap && window.Microsoft) {
-        bingMap.setView({ center: new Microsoft.Maps.Location(lat, lng), zoom: 22 });
-      }
+      await runSearch(lat, lng, formatted);
     } catch (err) {
       setStatus(err.message || 'Unknown error', true);
       console.error('[Solar] ERROR:', err);
@@ -704,29 +585,88 @@
     }
   }
 
-  async function resolveLatLng(input) {
-    const latLngRe = /^-?\d+(\.\d+)?\s*,\s*-?\d+(\.\d+)?$/;
-    if (latLngRe.test(input)) {
-      const [lat, lng] = input.split(',').map(Number);
-      return { lat, lng, formatted: null };
+  // ── SHARED SEARCH RUNNER ──────────────────────────────────────────────────
+  async function runSearch(lat, lng, label) {
+    setStatus('Fetching solar data…', false);
+    document.getElementById('search-btn').disabled = true;
+    try {
+      const data = await fetchSolarData(lat, lng);
+      solarData = data;
+
+      // Start from zoom 15 and animate in to the building bounding box
+      map.setCenter({ lat, lng });
+      map.setZoom(15);
+      map.setTilt(0);
+
+      // Render data (panels etc.) while zoomed out — they won't be visible yet
+      renderAll(data);
+      setStatus(label || (lat.toFixed(5) + ', ' + lng.toFixed(5)), false);
+
+      // On mobile: close sidebar so map is visible
+      if (window.innerWidth <= 680) {
+        document.getElementById('sidebar').classList.remove('open');
+        document.getElementById('sidebar-backdrop').classList.remove('visible');
+        setTimeout(() => google.maps.event.trigger(map, 'resize'), 50);
+      }
+
+      // Animate zoom from 15 → final fitted zoom
+      await animateZoomToBuilding(data);
+    } catch (err) {
+      setStatus(err.message || 'Unknown error', true);
+      throw err;
+    } finally {
+      document.getElementById('search-btn').disabled = false;
     }
-    for (let i = 0; i < 50; i++) {
-      if (geocoder) break;
-      await new Promise(r => setTimeout(r, 100));
+  }
+
+  // Animate zoom step by step, then fit to building bounding box at ~80% fill
+  async function animateZoomToBuilding(data) {
+    const bbox = data.boundingBox;
+    const center = data.center;
+
+    // Compute target zoom so the bounding box fills ~80% of the map viewport
+    const targetZoom = computeFitZoom(bbox, 0.80);
+
+    // Animate from current zoom up to targetZoom in steps
+    const startZoom = map.getZoom();
+    const steps = targetZoom - startZoom;
+    if (steps <= 0) { map.setZoom(targetZoom); return; }
+
+    for (let z = startZoom + 1; z <= targetZoom; z++) {
+      await new Promise(r => setTimeout(r, 220));
+      map.setZoom(z);
+      map.setCenter({ lat: center.latitude, lng: center.longitude });
     }
-    if (!geocoder) throw new Error('Google Maps failed to load');
-    return new Promise((resolve, reject) => {
-      const timer = setTimeout(() => reject(new Error('Geocoding timed out')), 8000);
-      geocoder.geocode({ address: input }, (results, status) => {
-        clearTimeout(timer);
-        if (status === 'OK' && results[0]) {
-          const loc = results[0].geometry.location;
-          resolve({ lat: loc.lat(), lng: loc.lng(), formatted: results[0].formatted_address });
-        } else {
-          reject(new Error(`Geocoding failed: ${status}`));
-        }
-      });
-    });
+  }
+
+  // Calculate zoom level that fits the bounding box into `fill` fraction of the map div
+  function computeFitZoom(bbox, fill) {
+    const mapEl = document.getElementById('map');
+    const mapW = mapEl.offsetWidth  || 600;
+    const mapH = mapEl.offsetHeight || 400;
+
+    const latDiff = Math.abs(bbox.ne.latitude  - bbox.sw.latitude);
+    const lngDiff = Math.abs(bbox.ne.longitude - bbox.sw.longitude);
+
+    // Metres per degree at the building's latitude
+    const midLat = (bbox.ne.latitude + bbox.sw.latitude) / 2;
+    const mPerDegLat = 111320;
+    const mPerDegLng = 111320 * Math.cos(midLat * Math.PI / 180);
+
+    const bboxW = lngDiff * mPerDegLng; // metres
+    const bboxH = latDiff * mPerDegLat;
+
+    // Google Maps: at zoom z, 1 pixel = 156543.03392 * cos(lat) / 2^z metres
+    const metersPerPxBase = 156543.03392 * Math.cos(midLat * Math.PI / 180);
+
+    // We want: bboxW / (metersPerPx) = mapW * fill → metersPerPx = bboxW / (mapW * fill)
+    const targetMppW = bboxW / (mapW * fill);
+    const targetMppH = bboxH / (mapH * fill);
+    const targetMpp = Math.max(targetMppW, targetMppH); // use the more constrained axis
+
+    const zoom = Math.log2(metersPerPxBase / targetMpp);
+    // Cap between 18 and 22
+    return Math.min(22, Math.max(18, Math.round(zoom)));
   }
 
   // ── SOLAR API ─────────────────────────────────────────────────────────────
@@ -744,11 +684,6 @@
   function renderAll(data) {
     clearOverlays();
     const sp = data.solarPotential;
-    const center = data.center;
-
-    map.setCenter({ lat: center.latitude, lng: center.longitude });
-    map.setZoom(22);
-    map.setTilt(0);
 
     document.getElementById('empty-state').style.display = 'none';
     document.getElementById('data-content').style.display = 'block';
@@ -789,9 +724,7 @@
     updateSavings();
 
     drawRoofBbox(data.boundingBox);
-    drawFluxOverlay(data);
     drawPanels(sp.solarPanels || [], currentConfig.panelsCount);
-    drawLabel(data, currentConfig);
     updateOverlayVisibility();
   }
 
@@ -843,8 +776,6 @@
     updateSavings();
     clearPanelOverlays();
     drawPanels(sp.solarPanels || [], currentConfig.panelsCount);
-    clearLabelOverlays();
-    drawLabel(solarData, currentConfig);
     updateOverlayVisibility();
   }
 
@@ -957,7 +888,6 @@
     document.getElementById('annual-kwh').textContent = kwhYear.toLocaleString('en', { maximumFractionDigits: 0 });
 
     renderROIChart(currentConfig.panelsCount, annual, sp.panelLifetimeYears);
-    if (solarData && currentConfig) showSummaryOverlay(solarData, currentConfig);
   }
 
   // ── ROI CHART — single net-value line ─────────────────────────────────────
@@ -1096,8 +1026,11 @@
       breakEvenMark;
   }
 
-  // ── PANEL COLOR SCALE ─────────────────────────────────────────────────────
-  function panelColor(kwh) {
+  // ── PANEL COLORS ─────────────────────────────────────────────────────────
+  const PANEL_DEFAULT_COLOR = '#3b82f6'; // flat blue when idle
+
+  function panelGradientColor(kwh) {
+    // orange → green gradient for selected panel
     const t = Math.min(1, Math.max(0, kwh / 450));
     const r = Math.round(249 + (34  - 249) * t);
     const g = Math.round(115 + (197 - 115) * t);
@@ -1121,51 +1054,52 @@
       const W = p.orientation === 'LANDSCAPE' ? pH : pW;
       const H = p.orientation === 'LANDSCAPE' ? pW : pH;
       const corners = rotatedRect(center, W, H, azimuth);
-      const fillColor = panelColor(p.yearlyEnergyDcKwh);
 
       const poly = new google.maps.Polygon({
         paths: corners,
         map: map,
-        fillColor,
-        fillOpacity: 0.85,
-        strokeColor: '#000',
+        fillColor: PANEL_DEFAULT_COLOR,
+        fillOpacity: 0.75,
+        strokeColor: '#1e3a5f',
         strokeWeight: 0.5,
         clickable: true,
         zIndex: 1,
       });
-      poly._fillColor = fillColor;
+      poly._panel = p;
+      poly._index = i + 1;
 
       poly.addListener('click', () => {
         if (selectedPoly === poly) {
-          poly.setOptions({ strokeColor: '#000', strokeWeight: 0.5, zIndex: 1 });
+          // Deselect — restore flat blue, hide overlay
+          poly.setOptions({ fillColor: PANEL_DEFAULT_COLOR, fillOpacity: 0.75, strokeColor: '#1e3a5f', strokeWeight: 0.5, zIndex: 1 });
           selectedPoly = null;
-          if (solarData && currentConfig) showSummaryOverlay(solarData, currentConfig);
+          hideMapOverlay();
           return;
         }
+        // Deselect previous
         if (selectedPoly) {
-          selectedPoly.setOptions({ strokeColor: '#000', strokeWeight: 0.5, zIndex: 1 });
+          selectedPoly.setOptions({ fillColor: PANEL_DEFAULT_COLOR, fillOpacity: 0.75, strokeColor: '#1e3a5f', strokeWeight: 0.5, zIndex: 1 });
         }
         selectedPoly = poly;
-        poly.setOptions({ strokeColor: '#f6c90e', strokeWeight: 3, zIndex: 10 });
-        showPanelInfo(p, i + 1);
+        // Show gradient color + highlight border
+        poly.setOptions({ fillColor: panelGradientColor(p.yearlyEnergyDcKwh), fillOpacity: 0.9, strokeColor: '#f6c90e', strokeWeight: 2.5, zIndex: 10 });
+        showPanelInfo(p, i + 1, seg);
       });
 
       overlays.panels.push(poly);
     });
   }
 
-  function showPanelInfo(p, num) {
-    const seg = (solarData.solarPotential.roofSegmentStats || [])[p.segmentIndex];
+  function showPanelInfo(p, num, seg) {
     const dirs = deg => { const d=['N','NE','E','SE','S','SW','W','NW']; return d[Math.round(deg/45)%8]; };
     const dir = seg ? dirs(seg.azimuthDegrees) : '—';
-    setMapOverlay(`
-      <span style="font-weight:700;color:#f6c90e;font-size:14px">Panel #${num}</span>
+    showMapOverlay(`
+      <span style="font-weight:700;color:#f6c90e;font-size:14px">Panel #${num} (${dir})</span>
       <span style="color:#94a3b8">${p.yearlyEnergyDcKwh.toFixed(1)} kWh/yr</span>
-      <span style="color:#cbd5e1">Segment ${p.segmentIndex + 1} · ${dir} · ${p.orientation}</span>
-    `, true);
+    `);
   }
 
-  function setMapOverlay(html, showClose) {
+  function showMapOverlay(html) {
     let el = document.getElementById('map-overlay-bar');
     if (!el) {
       el = document.createElement('div');
@@ -1180,30 +1114,21 @@
       `;
       document.getElementById('map').appendChild(el);
     }
-    const closeBtn = showClose
-      ? `<span style="cursor:pointer;color:#64748b;font-size:11px;margin-left:4px" id="map-overlay-close">✕</span>`
-      : '';
-    el.innerHTML = html + closeBtn;
-    if (showClose) {
-      document.getElementById('map-overlay-close').addEventListener('click', () => {
-        if (selectedPoly) {
-          selectedPoly.setOptions({ strokeColor: '#000', strokeWeight: 0.5, zIndex: 1 });
-          selectedPoly = null;
-        }
-        if (solarData && currentConfig) showSummaryOverlay(solarData, currentConfig);
-      });
-    }
+    el.style.display = 'flex';
+    el.innerHTML = html +
+      `<span id="map-overlay-close" style="cursor:pointer;color:#64748b;font-size:10px;margin-top:2px">✕ close</span>`;
+    document.getElementById('map-overlay-close').addEventListener('click', () => {
+      if (selectedPoly) {
+        selectedPoly.setOptions({ fillColor: PANEL_DEFAULT_COLOR, fillOpacity: 0.75, strokeColor: '#1e3a5f', strokeWeight: 0.5, zIndex: 1 });
+        selectedPoly = null;
+      }
+      hideMapOverlay();
+    });
   }
 
-  function showSummaryOverlay(data, config) {
-    const price = parseFloat(document.getElementById('price-per-kwh').value) || 0.28;
-    const eff = (parseFloat(document.getElementById('efficiency').value) || 80) / 100;
-    const annual = (config.yearlyEnergyDcKwh * eff * price).toFixed(0);
-    setMapOverlay(`
-      <span style="color:#f6c90e;font-weight:700;font-size:14px">☀ ${config.panelsCount} panels</span>
-      <span style="color:#94a3b8">${config.yearlyEnergyDcKwh.toFixed(0)} kWh/yr</span>
-      <span style="color:#34d399;font-weight:700">€${parseInt(annual).toLocaleString()}/yr savings</span>
-    `, false);
+  function hideMapOverlay() {
+    const el = document.getElementById('map-overlay-bar');
+    if (el) el.style.display = 'none';
   }
 
   function rotatedRect(center, wM, hM, azimuthDeg) {
@@ -1403,23 +1328,12 @@
     document.getElementById('map').appendChild(el);
   }
 
-  function drawLabel(data, config) {
-    if (!config) return;
-    showSummaryOverlay(data, config);
-    drawColorLegend();
-  }
-
   // ── OVERLAY VISIBILITY ────────────────────────────────────────────────────
   function updateOverlayVisibility() {
     const showPanels = document.getElementById('tog-panels').checked;
     const showRoof   = document.getElementById('tog-roof').checked;
-    const showStats  = document.getElementById('tog-stats').checked;
-    const showFlux   = document.getElementById('tog-flux').checked;
     overlays.panels.forEach(p => p.setMap(showPanels ? map : null));
     overlays.roof.forEach(r => r.setMap(showRoof ? map : null));
-    const bar = document.getElementById('map-overlay-bar');
-    if (bar) bar.style.display = showStats ? 'flex' : 'none';
-    if (overlays.flux) overlays.flux.setMap(showFlux ? map : null);
   }
 
   // ── CLEAR ─────────────────────────────────────────────────────────────────
@@ -1434,13 +1348,11 @@
     overlays.panels.forEach(p => p.setMap(null));
     overlays.panels = [];
     selectedPoly = null;
+    hideMapOverlay();
   }
   function clearLabelOverlays() {
     overlays.labels = [];
-    const bar = document.getElementById('map-overlay-bar');
-    if (bar) bar.remove();
-    const legend = document.getElementById('color-legend');
-    if (legend) legend.remove();
+    hideMapOverlay();
   }
 
   // ── UTILS ─────────────────────────────────────────────────────────────────
