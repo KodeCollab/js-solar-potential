@@ -78,6 +78,20 @@
     }
     #gps-btn:hover { background: #6366f1; }
     #gps-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    #select-roof-btn {
+      padding: 8px 16px;
+      border-radius: 8px;
+      border: none;
+      background: #ec4899;
+      color: #fff;
+      font-weight: 700;
+      font-size: 14px;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    #select-roof-btn:hover { background: #f43f5e; }
+    #select-roof-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    #select-roof-btn.active { background: #be185d; }
 
     /* Map provider selector */
     /* suppress any remaining Google Maps layer / rotate controls */
@@ -432,6 +446,7 @@
   <input id="address-input" type="text" placeholder="Enter address or lat, lng" autofocus />
   <button id="search-btn">Search</button>
   <button id="gps-btn" title="Use your GPS location">📍 My Location</button>
+  <button id="select-roof-btn" title="Click on a roof to select it" style="display:none">📍 Select Roof</button>
   <span id="status-msg">Enter an address to begin</span>
   <button id="sidebar-toggle">☰</button>
 </div>
@@ -599,6 +614,8 @@
   let solarData = null;
   let overlays = { panels: [], roof: [], labels: [], flux: null };
   let currentConfig = null;
+  let selectingRoof = false;
+  let mapClickListener = null;
 
   // segPanelCounts: segmentIndex → number of panels to show for that segment
   // This is the source of truth for panel counts when using the stepper UI.
@@ -673,6 +690,7 @@
 
     document.getElementById('search-btn').addEventListener('click', handleSearch);
     document.getElementById('gps-btn').addEventListener('click', handleGPS);
+    document.getElementById('select-roof-btn').addEventListener('click', handleSelectRoof);
     document.getElementById('address-input').addEventListener('keydown', e => {
       if (e.key === 'Enter') handleSearch();
     });
@@ -750,6 +768,41 @@
       },
       { timeout: 10000, enableHighAccuracy: true }
     );
+  }
+
+  // ── SELECT ROOF ────────────────────────────────────────────────────────────
+  function handleSelectRoof() {
+    const btn = document.getElementById('select-roof-btn');
+    selectingRoof = !selectingRoof;
+    btn.classList.toggle('active', selectingRoof);
+
+    if (selectingRoof) {
+      setStatus('Click on a roof to select it', false);
+      map.setOptions({ draggableCursor: 'pointer' });
+
+      // Remove old listener if exists
+      if (mapClickListener) mapClickListener.remove();
+
+      // Add click listener
+      mapClickListener = map.addListener('click', (e) => {
+        const lat = e.latLng.lat();
+        const lng = e.latLng.lng();
+        selectingRoof = false;
+        btn.classList.remove('active');
+        map.setOptions({ draggableCursor: '' });
+        setStatus(`Selected: ${lat.toFixed(6)}, ${lng.toFixed(6)}`, false);
+
+        // Trigger search with the selected coordinate
+        runSearch(lat, lng, `📍 ${lat.toFixed(5)}, ${lng.toFixed(5)}`);
+      });
+    } else {
+      setStatus('Roof selection cancelled', false);
+      map.setOptions({ draggableCursor: '' });
+      if (mapClickListener) {
+        mapClickListener.remove();
+        mapClickListener = null;
+      }
+    }
   }
 
   // ── SHARED SEARCH RUNNER ──────────────────────────────────────────────────
@@ -920,6 +973,9 @@
     drawRoofSegments();
     redrawPanels();
     updateOverlayVisibility();
+
+    // Show the "Select Roof" button now that we have data
+    document.getElementById('select-roof-btn').style.display = 'block';
   }
 
   // ── CALCULATE GRID DIMENSIONS ─────────────────────────────────────────────
@@ -1775,6 +1831,21 @@
     overlays.roof = [];
     if (overlays.flux) { overlays.flux.setMap(null); overlays.flux = null; }
     clearLabelOverlays();
+
+    // Reset roof selection UI
+    selectingRoof = false;
+    const btn = document.getElementById('select-roof-btn');
+    if (btn) {
+      btn.classList.remove('active');
+      btn.style.display = 'none';
+    }
+    if (mapClickListener) {
+      mapClickListener.remove();
+      mapClickListener = null;
+    }
+    if (map) {
+      map.setOptions({ draggableCursor: '' });
+    }
   }
   function clearPanelOverlays() {
     overlays.panels.forEach(p => p.setMap(null));
