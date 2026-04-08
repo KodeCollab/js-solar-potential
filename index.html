@@ -107,34 +107,6 @@
     #select-roof-btn:hover { background: #f43f5e; }
     #select-roof-btn:disabled { opacity: 0.5; cursor: not-allowed; }
     #select-roof-btn.active { background: #be185d; }
-    #draw-poly-btn {
-      padding: 8px 16px;
-      border-radius: 8px;
-      border: none;
-      background: #34d399;
-      color: #0f1117;
-      font-weight: 700;
-      font-size: 14px;
-      cursor: pointer;
-      white-space: nowrap;
-      flex-shrink: 0;
-    }
-    #draw-poly-btn:hover { background: #6ee7b7; }
-    #draw-poly-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-    #draw-poly-btn.active { background: #059669; color: #fff; }
-    #clear-poly-btn {
-      padding: 8px 16px;
-      border-radius: 8px;
-      border: none;
-      background: #374151;
-      color: #e2e8f0;
-      font-weight: 700;
-      font-size: 14px;
-      cursor: pointer;
-      white-space: nowrap;
-      flex-shrink: 0;
-    }
-    #clear-poly-btn:hover { background: #4b5563; }
 
     /* Map provider selector */
     /* suppress any remaining Google Maps layer / rotate controls */
@@ -540,17 +512,18 @@
       #topbar {
         padding: 8px 12px;
         gap: 8px;
-        /* Don't wrap — keep everything on one line */
-        flex-wrap: nowrap;
+        flex-wrap: wrap;
         overflow: visible;
         position: relative;
         z-index: 100;
       }
       #topbar h1 { display: none; }
+      /* Row 1: address + search fill the full width */
       #address-input {
         min-width: 0;
         font-size: 16px; /* prevent iOS zoom on focus */
         flex: 1 1 auto;
+        order: 1;
         position: relative;
         z-index: 101;
       }
@@ -558,13 +531,19 @@
         padding: 8px 12px;
         font-size: 13px;
         flex-shrink: 0;
+        order: 2;
         z-index: 101;
         position: relative;
       }
+      /* Row 2: action buttons + sidebar toggle on a second line */
+      #gps-btn       { order: 3; flex-shrink: 0; }
+      #select-roof-btn { order: 4; flex-shrink: 0; }
+      #ruler-btn     { order: 5; flex-shrink: 0; }
+      #clear-ruler-btn { order: 6; flex-shrink: 0; }
+      #sidebar-toggle { order: 7; flex-shrink: 0; }
       #status-msg { display: none; }
       #sidebar-toggle { display: block; }
-      #gps-btn, #select-roof-btn, #draw-poly-btn { display: block !important; }
-      #clear-poly-btn { display: none !important; }
+      #gps-btn, #select-roof-btn { display: block !important; }
 
       #sidebar {
         position: absolute;
@@ -635,6 +614,7 @@
       background: #f6c90e !important;
       color: #0f1117 !important;
     }
+
   </style>
 </head>
 <body>
@@ -645,9 +625,9 @@
   <input id="address-input" type="text" placeholder="Enter address or lat, lng" autofocus />
   <button id="search-btn">Search</button>
   <button id="gps-btn" title="Use your GPS location">📍 My Location</button>
-  <button id="select-roof-btn" title="Click on a roof to select it">📍 Select Roof</button>
-  <button id="draw-poly-btn" title="Draw a polygon to constrain solar panels">✏ Draw Zone</button>
-  <button id="clear-poly-btn" title="Clear drawn polygon" style="display:none">✕ Clear Zone</button>
+  <button id="select-roof-btn" title="Click on a roof to select it">🏠 Select Roof</button>
+  <button id="ruler-btn" title="Measure distance on the map">📏 Ruler</button>
+  <button id="clear-ruler-btn" title="Clear ruler measurement" style="display:none">✕ Ruler</button>
   <span id="status-msg">Enter an address to begin</span>
   <button id="sidebar-toggle">☰</button>
 </div>
@@ -824,12 +804,6 @@
   let segPanelCounts = {};
   let selectedSegmentIndex = null; // When a specific roof segment is selected via click
 
-  // Custom polygon constraint for panel drawing
-  let customConstraintPoly = null;   // google.maps.Polygon displayed on map
-  let customConstraintPath = null;   // [{lat, lng}] for pointInPolygon
-  let drawingManager = null;
-  let drawingPolygon = false;
-
   // ── MOBILE SIDEBAR TOGGLE ─────────────────────────────────────────────────
   document.getElementById('sidebar-toggle').addEventListener('click', () => {
     document.getElementById('sidebar').classList.toggle('open');
@@ -908,59 +882,8 @@
     document.getElementById('price-per-kwh').addEventListener('input', updateSavings);
     document.getElementById('efficiency').addEventListener('input', updateSavings);
 
-    // ── PANEL ARRAY CONTROLS (Arrow buttons for manual positioning) ──────────────────────────────────────────────────
-
-    // Attach listeners to array control buttons
-    // ── DRAWING MANAGER ──────────────────────────────────────────────────────
-    drawingManager = new google.maps.drawing.DrawingManager({
-      drawingMode: null,
-      drawingControl: false,
-      polygonOptions: {
-        fillColor: '#34d399',
-        fillOpacity: 0.15,
-        strokeColor: '#34d399',
-        strokeWeight: 2,
-        editable: true,
-        clickable: false,
-        zIndex: 5,
-      },
-    });
-    drawingManager.setMap(map);
-
-    google.maps.event.addListener(drawingManager, 'polygoncomplete', (polygon) => {
-      // Reset panel array transformations when drawing a zone
-      panelArrayOffset = { dLat: 0, dLng: 0 };
-      panelArrayRotation = 0;
-
-      drawingManager.setDrawingMode(null);
-      drawingPolygon = false;
-      document.getElementById('draw-poly-btn').classList.remove('active');
-      map.setOptions({ draggableCursor: '' });
-
-      if (customConstraintPoly) customConstraintPoly.setMap(null);
-      customConstraintPoly = polygon;
-      customConstraintPath = polygon.getPath().getArray().map(ll => ({ lat: ll.lat(), lng: ll.lng() }));
-
-      ['set_at', 'insert_at', 'remove_at'].forEach(evt => {
-        google.maps.event.addListener(polygon.getPath(), evt, () => {
-          customConstraintPath = polygon.getPath().getArray().map(ll => ({ lat: ll.lat(), lng: ll.lng() }));
-          redrawPanels();
-          updateSavings();
-        });
-      });
-
-      // Calculate centroid of the drawn zone and fetch solar data
-      const centroid = calculatePolygonCentroid(customConstraintPath);
-      fetchSolarDataForZone(centroid);
-
-      redrawPanels();
-      updateSavings();
-      setStatus('Zone applied. Panels repositioned. Drag vertices to adjust.', false);
-      document.getElementById('clear-poly-btn').style.display = 'block';
-    });
-
-    document.getElementById('draw-poly-btn').addEventListener('click', handleDrawPolygon);
-    document.getElementById('clear-poly-btn').addEventListener('click', handleClearPolygon);
+    document.getElementById('ruler-btn').addEventListener('click', handleRulerToggle);
+    document.getElementById('clear-ruler-btn').addEventListener('click', handleClearRuler);
   }
 
   // ── SEARCH ────────────────────────────────────────────────────────────────
@@ -1044,13 +967,6 @@
       panelArrayOffset = { dLat: 0, dLng: 0 };
       panelArrayRotation = 0;
 
-      // Cancel any active drawing mode
-      if (drawingPolygon) {
-        drawingPolygon = false;
-        document.getElementById('draw-poly-btn').classList.remove('active');
-        drawingManager.setDrawingMode(null);
-      }
-
       setStatus('Click on a roof to select it', false);
       map.setOptions({ draggableCursor: 'pointer' });
 
@@ -1108,43 +1024,132 @@
   }
 
   // ── DRAW POLYGON ──────────────────────────────────────────────────────────
-  function handleDrawPolygon() {
-    const btn = document.getElementById('draw-poly-btn');
-    drawingPolygon = !drawingPolygon;
+  // ── RULER MEASUREMENT ─────────────────────────────────────────────────────
+  let rulerMode = false;
+  let rulerPoints = [];
+  let rulerPolyline = null;
+  let rulerMarkers = [];
 
-    if (drawingPolygon) {
-      if (selectingRoof) {
-        selectingRoof = false;
-        document.getElementById('select-roof-btn').classList.remove('active');
-        if (mapClickListener) { mapClickListener.remove(); mapClickListener = null; }
-      }
+  function handleRulerToggle() {
+    const btn = document.getElementById('ruler-btn');
+    rulerMode = !rulerMode;
+
+    if (rulerMode) {
+      rulerPoints = [];
+      rulerMarkers = [];
       btn.classList.add('active');
-      drawingManager.setDrawingMode(google.maps.drawing.OverlayType.POLYGON);
       map.setOptions({ draggableCursor: 'crosshair' });
-      setStatus('Click to place vertices. Double-click or close to finish.', false);
+      setStatus('Click on the map to place measurement points. Double-click to finish.', false);
+
+      if (mapClickListener) { mapClickListener.remove(); }
+      mapClickListener = map.addListener('click', (e) => {
+        const lat = e.latLng.lat();
+        const lng = e.latLng.lng();
+        rulerPoints.push({ lat, lng });
+
+        // Add draggable marker
+        const marker = new google.maps.Marker({
+          position: { lat, lng },
+          map: map,
+          title: `Point ${rulerPoints.length}`,
+          icon: 'http://maps.google.com/mapfiles/ms/icons/blue-dot.png',
+          draggable: true
+        });
+
+        // Update ruler when marker is dragged
+        marker.addListener('drag', () => {
+          const idx = rulerMarkers.indexOf(marker);
+          if (idx !== -1) {
+            rulerPoints[idx] = { lat: marker.getPosition().lat(), lng: marker.getPosition().lng() };
+            updateRulerLine();
+            updateRulerDisplay();
+          }
+        });
+
+        rulerMarkers.push(marker);
+
+        // Draw line if we have 2+ points
+        if (rulerPoints.length >= 2) {
+          updateRulerLine();
+          updateRulerDisplay();
+        }
+      });
     } else {
       btn.classList.remove('active');
-      drawingManager.setDrawingMode(null);
+      if (mapClickListener) { mapClickListener.remove(); mapClickListener = null; }
       map.setOptions({ draggableCursor: '' });
-      setStatus('Drawing cancelled.', false);
+      setStatus('Ruler mode disabled.', false);
     }
   }
 
-  // ── CLEAR POLYGON ─────────────────────────────────────────────────────────
-  function handleClearPolygon() {
-    if (customConstraintPoly) {
-      customConstraintPoly.setMap(null);
-      customConstraintPoly = null;
-    }
-    customConstraintPath = null;
-    document.getElementById('clear-poly-btn').style.display = 'none';
-    drawingPolygon = false;
-    document.getElementById('draw-poly-btn').classList.remove('active');
-    drawingManager.setDrawingMode(null);
+  function handleClearRuler() {
+    rulerMode = false;
+    rulerPoints = [];
+    document.getElementById('ruler-btn').classList.remove('active');
+    document.getElementById('clear-ruler-btn').style.display = 'none';
+
+    if (rulerPolyline) { rulerPolyline.setMap(null); rulerPolyline = null; }
+    rulerMarkers.forEach(m => m.setMap(null));
+    rulerMarkers = [];
+
+    if (mapClickListener) { mapClickListener.remove(); mapClickListener = null; }
     map.setOptions({ draggableCursor: '' });
-    redrawPanels();
-    updateSavings();
-    setStatus('Zone cleared. Panels repositioned to original positions.', false);
+
+    // Remove ruler info box
+    const infoBox = document.getElementById('ruler-info');
+    if (infoBox) infoBox.remove();
+
+    setStatus('Ruler cleared.', false);
+  }
+
+  function updateRulerLine() {
+    if (rulerPolyline) rulerPolyline.setMap(null);
+
+    if (rulerPoints.length >= 2) {
+      rulerPolyline = new google.maps.Polyline({
+        path: rulerPoints,
+        map: map,
+        strokeColor: '#4f46e5',
+        strokeWeight: 2,
+        strokeOpacity: 0.8,
+        geodesic: true
+      });
+    }
+  }
+
+  function updateRulerDisplay() {
+    let totalMeters = 0;
+    for (let i = 0; i < rulerPoints.length - 1; i++) {
+      const d = google.maps.geometry.spherical.computeDistanceBetween(
+        new google.maps.LatLng(rulerPoints[i].lat, rulerPoints[i].lng),
+        new google.maps.LatLng(rulerPoints[i + 1].lat, rulerPoints[i + 1].lng)
+      );
+      totalMeters += d;
+    }
+
+    let infoBox = document.getElementById('ruler-info');
+    if (!infoBox) {
+      infoBox = document.createElement('div');
+      infoBox.id = 'ruler-info';
+      infoBox.style.cssText = `
+        position: fixed;
+        bottom: 100px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(79, 70, 229, 0.95);
+        color: white;
+        padding: 12px 20px;
+        border-radius: 8px;
+        font-size: 18px;
+        font-weight: bold;
+        z-index: 1000;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+      `;
+      document.body.appendChild(infoBox);
+    }
+
+    infoBox.textContent = `${totalMeters.toFixed(2)} m`;
+    document.getElementById('clear-ruler-btn').style.display = 'block';
   }
 
   // ── SHARED SEARCH RUNNER ──────────────────────────────────────────────────
@@ -1343,10 +1348,6 @@
     redrawPanels();
     updateOverlayVisibility();
 
-    // Show the "Clear Zone" button if a zone is active
-    if (customConstraintPath) {
-      document.getElementById('clear-poly-btn').style.display = 'block';
-    }
   }
 
   // ── CALCULATE GRID DIMENSIONS ─────────────────────────────────────────────
@@ -1499,7 +1500,7 @@
     const shownBySegment = {};
     Object.entries(segPanelCounts).forEach(([si, cnt]) => { shownBySegment[si] = cnt; });
 
-    const segOffsets = customConstraintPath ? buildSegOffsets() : null;
+    const segOffsets = buildSegOffsets();
     const segCursor = {};
     let totalKwh = 0, totalPanels = 0;
     allPanels.forEach(p => {
@@ -1710,92 +1711,6 @@
     return offsets;
   }
 
-  // ── COMPUTE ZONE AZIMUTH ─────────────────────────────────────────────────
-  // Calculate the azimuth of the longest edge in the constraint zone
-  function computeZoneAzimuth() {
-    if (!customConstraintPath || customConstraintPath.length < 2) return null;
-
-    let longestEdge = null;
-    let maxDistance = 0;
-
-    // Find the longest edge
-    for (let i = 0; i < customConstraintPath.length; i++) {
-      const p1 = customConstraintPath[i];
-      const p2 = customConstraintPath[(i + 1) % customConstraintPath.length];
-
-      const dLat = p2.lat - p1.lat;
-      const dLng = p2.lng - p1.lng;
-      const distance = Math.sqrt(dLat * dLat + dLng * dLng);
-
-      if (distance > maxDistance) {
-        maxDistance = distance;
-        longestEdge = { p1, p2 };
-      }
-    }
-
-    if (!longestEdge) return null;
-
-    // Calculate azimuth from the longest edge
-    const dLat = longestEdge.p2.lat - longestEdge.p1.lat;
-    const dLng = longestEdge.p2.lng - longestEdge.p1.lng;
-    let azimuth = Math.atan2(dLng, dLat) * 180 / Math.PI;
-
-    // Normalize to 0-360 range
-    azimuth = (azimuth + 360) % 360;
-
-    return azimuth;
-  }
-
-  // ── COMPUTE ZONE OFFSET ──────────────────────────────────────────────────
-  // Calculate how much to shift panels to fit inside the constraint zone
-  function computeZoneOffset() {
-    if (!customConstraintPath || customConstraintPath.length < 3) return { dLat: 0, dLng: 0 };
-    if (!solarData) return { dLat: 0, dLng: 0 };
-
-    const sp = solarData.solarPotential;
-    const allPanels = sp.solarPanels || [];
-    const segments = sp.roofSegmentStats || [];
-    const segOffsets = buildSegOffsets();
-
-    // Find the centroid of all panels that would be shown
-    let totalLat = 0, totalLng = 0, count = 0;
-    const panelsToShow = [];
-
-    allPanels.forEach(p => {
-      const si = p.segmentIndex;
-      const limit = segPanelCounts[si] || 0;
-      if (panelsToShow.filter(panel => panel.segmentIndex === si).length < limit) {
-        panelsToShow.push(p);
-      }
-    });
-
-    if (panelsToShow.length === 0) return { dLat: 0, dLng: 0 };
-
-    panelsToShow.forEach(p => {
-      const si = p.segmentIndex;
-      const off = segOffsets[si] || { dLat: 0, dLng: 0 };
-      totalLat += p.center.latitude + off.dLat;
-      totalLng += p.center.longitude + off.dLng;
-      count++;
-    });
-
-    const panelCentroid = { lat: totalLat / count, lng: totalLng / count };
-
-    // Compute constraint zone centroid
-    let zoneLat = 0, zoneLng = 0;
-    customConstraintPath.forEach(pt => {
-      zoneLat += pt.lat;
-      zoneLng += pt.lng;
-    });
-    const zoneCentroid = { lat: zoneLat / customConstraintPath.length, lng: zoneLng / customConstraintPath.length };
-
-    // Return the shift needed to align panel centroid with zone centroid
-    return {
-      dLat: zoneCentroid.lat - panelCentroid.lat,
-      dLng: zoneCentroid.lng - panelCentroid.lng
-    };
-  }
-
   // ── DRAW PANELS ───────────────────────────────────────────────────────────
   // Redraws all panels according to current segPanelCounts.
   // Constrains panels to roof segment polygons with 20cm inward margin.
@@ -1829,30 +1744,101 @@
     // Per-segment offset: align panel centroid to segment bounding-box centre
     const segOffsets = buildSegOffsets();
 
-    // Compute zone repositioning offset
-    const zoneOffset = customConstraintPath ? computeZoneOffset() : { dLat: 0, dLng: 0 };
-
     // Calculate azimuth per segment once (always use segment average or API azimuth)
     const segmentAzimuths = {};
     segments.forEach((seg, si) => {
       segmentAzimuths[si] = segmentAverageAzimuths[si] || seg.azimuthDegrees;
     });
 
-    // Sort panels by visual position: top-to-bottom (rows), then left-to-right (columns)
-    // Panel 1 is top-left, last panel is bottom-right
+    // ── CLEAN GRID LAYOUT ────────────────────────────────────────────────────
+    // For each segment, project all panels into azimuth-aligned "roof space",
+    // snap to integer grid positions, then convert back to lat/lng.
+    // This eliminates the stepped/staggered look from the raw API coordinates.
+
+    // Build per-segment snapped grid positions
+    const segmentGridPositions = {}; // si → Map(panelRef → {snappedLat, snappedLng})
+
+    segments.forEach((seg, si) => {
+      const segPanels = allPanels.filter(p => p.segmentIndex === si);
+      if (!segPanels.length) return;
+
+      const azDeg = seg.azimuthDegrees || 0;
+      const azRad = azDeg * Math.PI / 180;
+
+      // Anchor = centroid of all panels in this segment
+      const anchorLat = segPanels.reduce((s, p) => s + p.center.latitude, 0) / segPanels.length;
+      const anchorLng = segPanels.reduce((s, p) => s + p.center.longitude, 0) / segPanels.length;
+
+      const latM = 111320;
+      const lngM = 111320 * Math.cos(anchorLat * Math.PI / 180);
+
+      // Project each panel center into azimuth-rotated 2D space (meters)
+      // u = along the azimuth direction (left-right across the roof)
+      // v = perpendicular to azimuth (up-down the slope)
+      const cosAz = Math.cos(azRad), sinAz = Math.sin(azRad);
+      const projections = segPanels.map(p => {
+        const dLat = (p.center.latitude  - anchorLat) * latM;
+        const dLng = (p.center.longitude - anchorLng) * lngM;
+        // Rotate into azimuth frame
+        const u =  dLng * cosAz + dLat * sinAz;
+        const v = -dLng * sinAz + dLat * cosAz;
+        return { panel: p, u, v };
+      });
+
+      // Determine grid step: use panel dimensions (portrait = W wide, H tall)
+      // Step across azimuth = panel width + small gap; step along slope = panel height + gap
+      const gapM = 0.02; // 2 cm gap between panels
+      const stepU = pW + gapM;
+      const stepV = pH + gapM;
+
+      // Snap each panel to the nearest grid integer
+      const snapped = projections.map(({ panel, u, v }) => ({
+        panel,
+        col: Math.round(u / stepU),
+        row: Math.round(v / stepV),
+      }));
+
+      // Sort: row descending (top of roof = positive v = top of grid), then col ascending
+      snapped.sort((a, b) => b.row - a.row || a.col - b.col);
+
+      // Resolve collisions: if two panels land on same cell, nudge by index
+      const occupied = new Map();
+      snapped.forEach(s => {
+        let key = `${s.row},${s.col}`;
+        let tries = 0;
+        while (occupied.has(key) && tries < 20) {
+          s.col++;
+          key = `${s.row},${s.col}`;
+          tries++;
+        }
+        occupied.set(key, true);
+      });
+
+      // Convert snapped grid positions back to lat/lng
+      const positions = new Map();
+      snapped.forEach(({ panel, col, row }) => {
+        const uM = col * stepU;
+        const vM = row * stepV;
+        // Inverse rotate from azimuth frame back to geographic
+        const dLng =  uM * cosAz - vM * sinAz;
+        const dLat =  uM * sinAz + vM * cosAz;
+        positions.set(panel, {
+          lat: anchorLat + dLat / latM,
+          lng: anchorLng + dLng / lngM,
+        });
+      });
+
+      segmentGridPositions[si] = positions;
+    });
+
+    // Sort all panels: by segment, then by snapped row desc, col asc for panel numbering
     const sortedPanels = [...allPanels].sort((a, b) => {
-      const rowThreshold = 0.00005; // ~5 meters to group panels in same row
-
-      // First, group into rows by latitude (highest latitude = topmost)
-      const latDiff = b.center.latitude - a.center.latitude;
-
-      if (Math.abs(latDiff) > rowThreshold) {
-        // Different rows: sort by latitude descending (highest/top first)
-        return latDiff;
-      }
-
-      // Same row: sort left-to-right by longitude (lowest/left first)
-      return a.center.longitude - b.center.longitude;
+      if (a.segmentIndex !== b.segmentIndex) return a.segmentIndex - b.segmentIndex;
+      const posA = segmentGridPositions[a.segmentIndex]?.get(a) || { lat: a.center.latitude, lng: a.center.longitude };
+      const posB = segmentGridPositions[b.segmentIndex]?.get(b) || { lat: b.center.latitude, lng: b.center.longitude };
+      const latDiff = posB.lat - posA.lat;
+      if (Math.abs(latDiff) > 1e-8) return latDiff;
+      return posA.lng - posB.lng;
     });
 
     // Track how many panels we've drawn per segment to respect the count cap
@@ -1870,17 +1856,13 @@
       if (drawn[si] > limit) return;
 
       panelNum++;
-      // Skip if this panel has been excluded
       if (excludedPanels.has(panelNum)) return;
 
-      // This panel will be drawn
-      panelsToDraw.push({ panel: p, panelNum: panelNum, segmentIndex: si });
+      const snappedCenter = segmentGridPositions[si]?.get(p) || { lat: p.center.latitude, lng: p.center.longitude };
+      panelsToDraw.push({ panel: p, panelNum, segmentIndex: si, center: snappedCenter });
 
-      // Calculate centroid from raw panel positions
-      const centerLat = p.center.latitude;
-      const centerLng = p.center.longitude;
-      totalLat += centerLat;
-      totalLng += centerLng;
+      totalLat += snappedCenter.lat;
+      totalLng += snappedCenter.lng;
       visibleCount++;
     });
 
@@ -1888,13 +1870,9 @@
       arrayCentroid = { lat: totalLat / visibleCount, lng: totalLng / visibleCount };
     }
 
-    // Draw panels using exact coordinates from JSON
-    panelsToDraw.forEach(({ panel: p, panelNum: pNum, segmentIndex: si }, index) => {
+    // Draw panels using snapped grid positions, rotated to segment azimuth
+    panelsToDraw.forEach(({ panel: p, panelNum: pNum, segmentIndex: si, center }) => {
       const seg = segments[si];
-      const center = {
-        lat: p.center.latitude,
-        lng: p.center.longitude
-      };
 
       // Get azimuth from roofSegmentStats
       const segmentAzimuth = seg.azimuthDegrees;
@@ -1902,56 +1880,32 @@
       const azCos = Math.cos(azRad);
       const azSin = Math.sin(azRad);
 
-      // Get panel corners from API bounds or calculate them
-      let corners = [];
-      if (p.bounds && p.bounds.length > 0) {
-        // Use API bounds and rotate by segment azimuth
-        corners = p.bounds.map(pt => {
-          const ptLat = pt.latitude;
-          const ptLng = pt.longitude;
+      // Always calculate corners from panel dimensions, rotated to azimuth
+      // (ignore API bounds which are already staggered)
+      const latDegPerMeter = 1 / 111320;
+      const lngDegPerMeter = 1 / (111320 * Math.cos(center.lat * Math.PI / 180));
 
-          // Offset from center
-          const dy = ptLat - center.lat;
-          const dx = ptLng - center.lng;
+      // Portrait: width along azimuth, height along slope
+      // Landscape: swap width and height
+      const isLandscape = p.orientation === 'LANDSCAPE';
+      const halfW = (isLandscape ? pH : pW) / 2 * lngDegPerMeter;
+      const halfH = (isLandscape ? pW : pH) / 2 * latDegPerMeter;
 
-          // Rotate by segment azimuth
-          const rotX = dx * azCos - dy * azSin;
-          const rotY = dx * azSin + dy * azCos;
-
-          return {
-            lat: center.lat + rotY,
-            lng: center.lng + rotX
-          };
-        });
-      } else {
-        // Fallback: calculate from standard panel dimensions
-        const panelW = pW;  // 1.045m
-        const panelH = pH;  // 1.879m
-
-        // Convert to degrees
-        const latDegPerMeter = 1 / 111320;
-        const lngDegPerMeter = 1 / (111320 * Math.cos(center.lat * Math.PI / 180));
-        const panelWDeg = panelW * lngDegPerMeter;
-        const panelHDeg = panelH * latDegPerMeter;
-
-        const halfW = panelWDeg / 2;
-        const halfH = panelHDeg / 2;
-
-        // Create corners and rotate by segment azimuth
-        corners = [
-          { x: -halfW, y: halfH },
-          { x: halfW, y: halfH },
-          { x: halfW, y: -halfH },
-          { x: -halfW, y: -halfH }
-        ].map(pt => {
-          const rotX = pt.x * azCos - pt.y * azSin;
-          const rotY = pt.x * azSin + pt.y * azCos;
-          return {
-            lat: center.lat + rotY,
-            lng: center.lng + rotX
-          };
-        });
-      }
+      // Unit corners in azimuth-frame (x = across azimuth, y = along slope)
+      let corners = [
+        { x: -halfW, y:  halfH },
+        { x:  halfW, y:  halfH },
+        { x:  halfW, y: -halfH },
+        { x: -halfW, y: -halfH },
+      ].map(pt => {
+        // Rotate from azimuth frame to geographic frame
+        const rotX = pt.x * azCos - pt.y * azSin;
+        const rotY = pt.x * azSin + pt.y * azCos;
+        return {
+          lat: center.lat + rotY,
+          lng: center.lng + rotX,
+        };
+      });
 
       // Apply user-defined array transformations (rotation and offset)
       if (panelArrayRotation !== 0 || panelArrayOffset.dLat !== 0 || panelArrayOffset.dLng !== 0) {
@@ -1968,8 +1922,6 @@
             };
           });
         }
-
-        // Apply manual offset
         if (panelArrayOffset.dLat !== 0 || panelArrayOffset.dLng !== 0) {
           corners = corners.map(pt => ({
             lat: pt.lat + panelArrayOffset.dLat,
@@ -1978,21 +1930,9 @@
         }
       }
 
-      // Apply zone offset
-      if (zoneOffset.dLat !== 0 || zoneOffset.dLng !== 0) {
-        corners = corners.map(pt => ({
-          lat: pt.lat + zoneOffset.dLat,
-          lng: pt.lng + zoneOffset.dLng
-        }));
-      }
-
-      // Check constraints
+      // Check roof polygon constraint (use snapped center)
       const roofPoly = segPolygons[si];
       if (roofPoly && !pointInPolygon(center, roofPoly) && (panelArrayOffset.dLat === 0 && panelArrayOffset.dLng === 0 && panelArrayRotation === 0)) {
-        return;
-      }
-
-      if (customConstraintPath && !pointInPolygon(center, customConstraintPath)) {
         return;
       }
 
@@ -2038,10 +1978,12 @@
     const panelAzimuth = segmentAverageAzimuths[p.segmentIndex] || seg.azimuthDegrees;
     const dir = dirs(panelAzimuth);
     const pitch = seg ? `${seg.pitchDegrees.toFixed(1)}°` : '—';
+    const orientation = p.orientation || '—';
     const html = `<div style="display:flex;flex-direction:column;gap:6px;align-items:center">
       <span style="font-weight:700;color:#f6c90e;font-size:14px">Panel #${num}</span>
       <span style="color:#94a3b8;font-size:12px">${dir} facing, ${pitch} pitch</span>
       <span style="color:#94a3b8;font-size:12px">Azimuth: ${panelAzimuth.toFixed(0)}°</span>
+      <span style="color:#94a3b8;font-size:12px">Orientation: ${orientation}</span>
       <span style="color:#a0aec0;font-size:12px">${p.yearlyEnergyDcKwh.toFixed(1)} kWh/yr</span>
     </div>`;
     showMapOverlay(html, num);
@@ -2568,55 +2510,6 @@
     return inside;
   }
 
-  // ── CALCULATE POLYGON CENTROID ───────────────────────────────────────────
-  // Finds the middle point (centroid) of a polygon defined by vertices
-  function calculatePolygonCentroid(polygon) {
-    if (!polygon || polygon.length === 0) return null;
-    let totalLat = 0, totalLng = 0;
-    polygon.forEach(point => {
-      totalLat += point.lat;
-      totalLng += point.lng;
-    });
-    return {
-      lat: totalLat / polygon.length,
-      lng: totalLng / polygon.length
-    };
-  }
-
-  // ── FETCH SOLAR DATA FOR ZONE CENTROID ─────────────────────────────────
-  // Gets solar potential data for the centroid of the drawn zone and displays flux overlay
-  async function fetchSolarDataForZone(centroid) {
-    if (!centroid) return;
-
-    try {
-      setStatus('Fetching solar data for zone...', true);
-      const url = `https://solar.googleapis.com/v1/buildingInsights:findClosest`
-        + `?location.latitude=${centroid.lat}&location.longitude=${centroid.lng}`
-        + `&requiredQuality=HIGH&key=${API_KEY}`;
-
-      const response = await fetch(url);
-      if (!response.ok) {
-        const err = await response.json().catch(() => ({}));
-        console.warn('[Zone Solar] API error:', err);
-        setStatus('Could not fetch solar data for zone', false);
-        return;
-      }
-
-      const data = await response.json();
-      if (data.solarPotential) {
-        console.log('[Zone Solar] Data fetched for centroid:', centroid, data.solarPotential);
-
-        // Draw the solar flux heatmap overlay for the zone
-        await drawFluxOverlay(data);
-
-        setStatus('Zone solar data updated with flux layer', false);
-      }
-    } catch (e) {
-      console.warn('[Zone Solar] fetch error', e);
-      setStatus('Error fetching zone solar data', false);
-    }
-  }
-
   // ── ROTATE TO ROOF COORDINATES ────────────────────────────────────────────
   // Convert lat/lng point to 2D roof-aligned coordinates (meters)
   // Origin at anchor point, x-axis along roof azimuth, y-axis perpendicular
@@ -2750,20 +2643,6 @@
       map.setOptions({ draggableCursor: '' });
     }
 
-    // Clear drawn polygon constraint
-    if (customConstraintPoly) {
-      customConstraintPoly.setMap(null);
-      customConstraintPoly = null;
-    }
-    customConstraintPath = null;
-    drawingPolygon = false;
-    if (drawingManager) {
-      drawingManager.setDrawingMode(null);
-    }
-    const drawBtn = document.getElementById('draw-poly-btn');
-    if (drawBtn) { drawBtn.classList.remove('active'); drawBtn.style.display = 'none'; }
-    const clearBtn = document.getElementById('clear-poly-btn');
-    if (clearBtn) clearBtn.style.display = 'none';
   }
   function clearPanelOverlays(preserveInfo = false) {
     overlays.panels.forEach(p => p.setMap(null));
@@ -2784,11 +2663,13 @@
     el.textContent = msg;
     el.className = isError ? 'error' : '';
   }
+
+
 </script>
 
 <script src="https://cdn.jsdelivr.net/npm/geotiff@2.1.3/dist-browser/geotiff.js"></script>
 <script
-  src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDMpo4xVLbEj0G1l_9WaaDW4kTpIg7TZaw&libraries=places,drawing&callback=initMap"
+  src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDMpo4xVLbEj0G1l_9WaaDW4kTpIg7TZaw&libraries=places,geometry&callback=initMap"
   async defer>
 </script>
 
