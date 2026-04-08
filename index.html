@@ -9,6 +9,18 @@
 
     html { height: 100%; }
 
+    #map-overlay-bar {
+      position: fixed !important;
+      bottom: 20px !important;
+      left: 50% !important;
+      transform: translateX(-50%) !important;
+      z-index: 10000 !important;
+      display: flex !important;
+      visibility: visible !important;
+      opacity: 1 !important;
+      pointer-events: auto !important;
+    }
+
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
       background: #0f1117;
@@ -29,9 +41,10 @@
       display: flex;
       align-items: center;
       gap: 10px;
-      flex-wrap: wrap;
+      flex-wrap: nowrap;
       z-index: 10;
-      overflow: visible;
+      overflow-x: auto;
+      overflow-y: hidden;
       position: relative;
     }
     #topbar h1 {
@@ -75,6 +88,7 @@
       font-size: 14px;
       cursor: pointer;
       white-space: nowrap;
+      flex-shrink: 0;
     }
     #gps-btn:hover { background: #6366f1; }
     #gps-btn:disabled { opacity: 0.5; cursor: not-allowed; }
@@ -88,10 +102,39 @@
       font-size: 14px;
       cursor: pointer;
       white-space: nowrap;
+      flex-shrink: 0;
     }
     #select-roof-btn:hover { background: #f43f5e; }
     #select-roof-btn:disabled { opacity: 0.5; cursor: not-allowed; }
     #select-roof-btn.active { background: #be185d; }
+    #draw-poly-btn {
+      padding: 8px 16px;
+      border-radius: 8px;
+      border: none;
+      background: #34d399;
+      color: #0f1117;
+      font-weight: 700;
+      font-size: 14px;
+      cursor: pointer;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    #draw-poly-btn:hover { background: #6ee7b7; }
+    #draw-poly-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    #draw-poly-btn.active { background: #059669; color: #fff; }
+    #clear-poly-btn {
+      padding: 8px 16px;
+      border-radius: 8px;
+      border: none;
+      background: #374151;
+      color: #e2e8f0;
+      font-weight: 700;
+      font-size: 14px;
+      cursor: pointer;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    #clear-poly-btn:hover { background: #4b5563; }
 
     /* Map provider selector */
     /* suppress any remaining Google Maps layer / rotate controls */
@@ -210,10 +253,11 @@
       background: #1a1d27;
       border: none;
       color: #e2e8f0;
-      font-size: 18px;
-      font-weight: 300;
-      width: 38px;
+      font-size: 12px;
+      font-weight: 600;
+      min-width: 36px;
       height: 36px;
+      padding: 0 6px;
       cursor: pointer;
       display: flex;
       align-items: center;
@@ -223,6 +267,14 @@
     }
     .stepper-btn:hover { background: #2d3148; color: #f6c90e; }
     .stepper-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+    .stepper-btn[data-action="min"], .stepper-btn[data-action="max"] {
+      font-size: 11px;
+      min-width: 44px;
+      background: #0f766e;
+    }
+    .stepper-btn[data-action="min"]:hover, .stepper-btn[data-action="max"]:hover {
+      background: #115e59;
+    }
     .stepper-count {
       flex: 1;
       text-align: center;
@@ -381,6 +433,106 @@
     .sb-value { font-size: 16px; font-weight: 700; line-height: 1; }
     .sb-divider { width: 1px; height: 32px; background: #2d3148; }
 
+    /* ── ARRAY SUMMARY PANEL (BOTTOM LEFT) ── */
+    #array-summary-panel {
+      position: fixed !important;
+      bottom: 20px !important;
+      left: 20px !important;
+      z-index: 9999 !important;
+      background: rgba(26,29,39,0.95) !important;
+      border: 2px solid #60a5fa !important;
+      border-radius: 12px !important;
+      padding: 14px 16px !important;
+      display: flex !important;
+      flex-direction: column !important;
+      gap: 8px !important;
+      font-family: sans-serif !important;
+      color: #e2e8f0 !important;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.9) !important;
+      cursor: pointer !important;
+      transition: all 0.2s !important;
+      max-width: 200px !important;
+      visibility: visible !important;
+      opacity: 1 !important;
+      pointer-events: auto !important;
+    }
+    #array-summary-panel:hover {
+      background: rgba(26,29,39,0.98) !important;
+      border-color: #93c5fd !important;
+      box-shadow: 0 6px 24px rgba(0,0,0,0.95) !important;
+    }
+    .array-summary-title {
+      font-size: 12px !important;
+      font-weight: 700 !important;
+      color: #60a5fa !important;
+      text-transform: uppercase !important;
+      letter-spacing: 0.05em !important;
+    }
+    .array-summary-item {
+      display: flex !important;
+      justify-content: space-between !important;
+      align-items: center !important;
+      font-size: 12px !important;
+      gap: 8px !important;
+    }
+    .array-summary-label {
+      color: #94a3b8 !important;
+    }
+    .array-summary-value {
+      font-weight: 600 !important;
+      color: #f6c90e !important;
+    }
+
+    /* ── SEGMENT SUMMARY PANEL (TOP RIGHT) ── */
+    #segment-summary-panel {
+      position: fixed !important;
+      top: 20px !important;
+      right: 20px !important;
+      z-index: 9999 !important;
+      background: rgba(26,29,39,0.95) !important;
+      border: 2px solid #34d399 !important;
+      border-radius: 12px !important;
+      padding: 14px 16px !important;
+      display: flex !important;
+      flex-direction: column !important;
+      gap: 8px !important;
+      font-family: sans-serif !important;
+      color: #e2e8f0 !important;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.9) !important;
+      cursor: pointer !important;
+      transition: all 0.2s !important;
+      max-width: 220px !important;
+      visibility: visible !important;
+      opacity: 1 !important;
+      pointer-events: auto !important;
+    }
+    #segment-summary-panel:hover {
+      background: rgba(26,29,39,0.98) !important;
+      border-color: #6ee7b7 !important;
+      box-shadow: 0 6px 24px rgba(0,0,0,0.95) !important;
+    }
+    .segment-summary-title {
+      font-size: 12px !important;
+      font-weight: 700 !important;
+      color: #34d399 !important;
+      text-transform: uppercase !important;
+      letter-spacing: 0.05em !important;
+    }
+    .segment-summary-item {
+      display: flex !important;
+      justify-content: space-between !important;
+      align-items: center !important;
+      font-size: 12px !important;
+      gap: 8px !important;
+    }
+    .segment-summary-label {
+      color: #94a3b8 !important;
+    }
+    .segment-summary-value {
+      font-weight: 600 !important;
+      color: #34d399 !important;
+    }
+
     /* ── MOBILE ── */
     @media (max-width: 680px) {
       #summary-bar { gap: 12px; padding: 8px 14px; font-size: 12px; bottom: 12px; }
@@ -411,6 +563,8 @@
       }
       #status-msg { display: none; }
       #sidebar-toggle { display: block; }
+      #gps-btn, #select-roof-btn, #draw-poly-btn { display: block !important; }
+      #clear-poly-btn { display: none !important; }
 
       #sidebar {
         position: absolute;
@@ -436,6 +590,51 @@
       /* Map overlay bar wraps on small screens */
       #map-overlay-bar { font-size: 11px !important; padding: 6px 10px !important; white-space: normal !important; }
     }
+
+    #map {
+      position: relative;
+      overflow: visible;
+    }
+    .array-control-icon {
+      width: 44px !important;
+      height: 44px !important;
+      padding: 0 !important;
+      background: rgba(26, 29, 39, 0.85) !important;
+      border: 2px solid #f6c90e !important;
+      border-radius: 6px !important;
+      cursor: grab !important;
+      font-size: 22px !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      transition: all 0.15s !important;
+      color: #f6c90e !important;
+      user-select: none !important;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.7) !important;
+      visibility: visible !important;
+      opacity: 1 !important;
+      pointer-events: auto !important;
+    }
+    .array-control-icon:hover {
+      background: rgba(246, 201, 14, 0.3) !important;
+      transform: scale(1.05) !important;
+    }
+    .array-control-icon.active {
+      background: #f6c90e !important;
+      color: #0f1117 !important;
+      cursor: grabbing !important;
+    }
+    .array-arrow-btn {
+      transition: all 0.15s !important;
+    }
+    .array-arrow-btn:hover {
+      background: rgba(246, 201, 14, 0.4) !important;
+      transform: scale(1.1) !important;
+    }
+    .array-arrow-btn:active {
+      background: #f6c90e !important;
+      color: #0f1117 !important;
+    }
   </style>
 </head>
 <body>
@@ -446,7 +645,9 @@
   <input id="address-input" type="text" placeholder="Enter address or lat, lng" autofocus />
   <button id="search-btn">Search</button>
   <button id="gps-btn" title="Use your GPS location">📍 My Location</button>
-  <button id="select-roof-btn" title="Click on a roof to select it" style="display:none">📍 Select Roof</button>
+  <button id="select-roof-btn" title="Click on a roof to select it">📍 Select Roof</button>
+  <button id="draw-poly-btn" title="Draw a polygon to constrain solar panels">✏ Draw Zone</button>
+  <button id="clear-poly-btn" title="Clear drawn polygon" style="display:none">✕ Clear Zone</button>
   <span id="status-msg">Enter an address to begin</span>
   <button id="sidebar-toggle">☰</button>
 </div>
@@ -483,6 +684,7 @@
         <span class="sb-value" id="sb-breakeven" style="color:#f6c90e">—</span>
       </div>
     </div>
+
   </div>
 
   <!-- Mobile backdrop -->
@@ -620,6 +822,13 @@
   // segPanelCounts: segmentIndex → number of panels to show for that segment
   // This is the source of truth for panel counts when using the stepper UI.
   let segPanelCounts = {};
+  let selectedSegmentIndex = null; // When a specific roof segment is selected via click
+
+  // Custom polygon constraint for panel drawing
+  let customConstraintPoly = null;   // google.maps.Polygon displayed on map
+  let customConstraintPath = null;   // [{lat, lng}] for pointInPolygon
+  let drawingManager = null;
+  let drawingPolygon = false;
 
   // ── MOBILE SIDEBAR TOGGLE ─────────────────────────────────────────────────
   document.getElementById('sidebar-toggle').addEventListener('click', () => {
@@ -698,6 +907,60 @@
     document.getElementById('tog-roof').addEventListener('change', updateOverlayVisibility);
     document.getElementById('price-per-kwh').addEventListener('input', updateSavings);
     document.getElementById('efficiency').addEventListener('input', updateSavings);
+
+    // ── PANEL ARRAY CONTROLS (Arrow buttons for manual positioning) ──────────────────────────────────────────────────
+
+    // Attach listeners to array control buttons
+    // ── DRAWING MANAGER ──────────────────────────────────────────────────────
+    drawingManager = new google.maps.drawing.DrawingManager({
+      drawingMode: null,
+      drawingControl: false,
+      polygonOptions: {
+        fillColor: '#34d399',
+        fillOpacity: 0.15,
+        strokeColor: '#34d399',
+        strokeWeight: 2,
+        editable: true,
+        clickable: false,
+        zIndex: 5,
+      },
+    });
+    drawingManager.setMap(map);
+
+    google.maps.event.addListener(drawingManager, 'polygoncomplete', (polygon) => {
+      // Reset panel array transformations when drawing a zone
+      panelArrayOffset = { dLat: 0, dLng: 0 };
+      panelArrayRotation = 0;
+
+      drawingManager.setDrawingMode(null);
+      drawingPolygon = false;
+      document.getElementById('draw-poly-btn').classList.remove('active');
+      map.setOptions({ draggableCursor: '' });
+
+      if (customConstraintPoly) customConstraintPoly.setMap(null);
+      customConstraintPoly = polygon;
+      customConstraintPath = polygon.getPath().getArray().map(ll => ({ lat: ll.lat(), lng: ll.lng() }));
+
+      ['set_at', 'insert_at', 'remove_at'].forEach(evt => {
+        google.maps.event.addListener(polygon.getPath(), evt, () => {
+          customConstraintPath = polygon.getPath().getArray().map(ll => ({ lat: ll.lat(), lng: ll.lng() }));
+          redrawPanels();
+          updateSavings();
+        });
+      });
+
+      // Calculate centroid of the drawn zone and fetch solar data
+      const centroid = calculatePolygonCentroid(customConstraintPath);
+      fetchSolarDataForZone(centroid);
+
+      redrawPanels();
+      updateSavings();
+      setStatus('Zone applied. Panels repositioned. Drag vertices to adjust.', false);
+      document.getElementById('clear-poly-btn').style.display = 'block';
+    });
+
+    document.getElementById('draw-poly-btn').addEventListener('click', handleDrawPolygon);
+    document.getElementById('clear-poly-btn').addEventListener('click', handleClearPolygon);
   }
 
   // ── SEARCH ────────────────────────────────────────────────────────────────
@@ -777,6 +1040,17 @@
     btn.classList.toggle('active', selectingRoof);
 
     if (selectingRoof) {
+      // Reset panel array transformations when selecting a roof
+      panelArrayOffset = { dLat: 0, dLng: 0 };
+      panelArrayRotation = 0;
+
+      // Cancel any active drawing mode
+      if (drawingPolygon) {
+        drawingPolygon = false;
+        document.getElementById('draw-poly-btn').classList.remove('active');
+        drawingManager.setDrawingMode(null);
+      }
+
       setStatus('Click on a roof to select it', false);
       map.setOptions({ draggableCursor: 'pointer' });
 
@@ -792,7 +1066,35 @@
         map.setOptions({ draggableCursor: '' });
         setStatus(`Selected: ${lat.toFixed(6)}, ${lng.toFixed(6)}`, false);
 
-        // Trigger search with the selected coordinate
+        // Find which segment this coordinate belongs to
+        if (solarData && solarData.solarPotential) {
+          const segments = solarData.solarPotential.roofSegmentStats || [];
+          const clickPoint = { lat, lng };
+          let foundSegmentIndex = null;
+
+          for (let si = 0; si < segments.length; si++) {
+            const seg = segments[si];
+            if (!seg.outline) continue;
+            const polygon = seg.outline.map(pt => ({ lat: pt.latitude, lng: pt.longitude }));
+            if (pointInPolygon(clickPoint, polygon)) {
+              foundSegmentIndex = si;
+              break;
+            }
+          }
+
+          if (foundSegmentIndex !== null) {
+            // Set selected segment and reset panel counts
+            selectedSegmentIndex = foundSegmentIndex;
+            segPanelCounts = {};
+
+            setStatus(`Selected Roof ${foundSegmentIndex + 1}: ${lat.toFixed(6)}, ${lng.toFixed(6)}`, false);
+            renderSteppers(segments, panelsBySegment);
+            showSegmentSummary(foundSegmentIndex);
+            return;
+          }
+        }
+
+        // Fallback: if no segment found, do full search
         runSearch(lat, lng, `📍 ${lat.toFixed(5)}, ${lng.toFixed(5)}`);
       });
     } else {
@@ -805,8 +1107,54 @@
     }
   }
 
+  // ── DRAW POLYGON ──────────────────────────────────────────────────────────
+  function handleDrawPolygon() {
+    const btn = document.getElementById('draw-poly-btn');
+    drawingPolygon = !drawingPolygon;
+
+    if (drawingPolygon) {
+      if (selectingRoof) {
+        selectingRoof = false;
+        document.getElementById('select-roof-btn').classList.remove('active');
+        if (mapClickListener) { mapClickListener.remove(); mapClickListener = null; }
+      }
+      btn.classList.add('active');
+      drawingManager.setDrawingMode(google.maps.drawing.OverlayType.POLYGON);
+      map.setOptions({ draggableCursor: 'crosshair' });
+      setStatus('Click to place vertices. Double-click or close to finish.', false);
+    } else {
+      btn.classList.remove('active');
+      drawingManager.setDrawingMode(null);
+      map.setOptions({ draggableCursor: '' });
+      setStatus('Drawing cancelled.', false);
+    }
+  }
+
+  // ── CLEAR POLYGON ─────────────────────────────────────────────────────────
+  function handleClearPolygon() {
+    if (customConstraintPoly) {
+      customConstraintPoly.setMap(null);
+      customConstraintPoly = null;
+    }
+    customConstraintPath = null;
+    document.getElementById('clear-poly-btn').style.display = 'none';
+    drawingPolygon = false;
+    document.getElementById('draw-poly-btn').classList.remove('active');
+    drawingManager.setDrawingMode(null);
+    map.setOptions({ draggableCursor: '' });
+    redrawPanels();
+    updateSavings();
+    setStatus('Zone cleared. Panels repositioned to original positions.', false);
+  }
+
   // ── SHARED SEARCH RUNNER ──────────────────────────────────────────────────
   async function runSearch(lat, lng, label) {
+    // Reset panel array transformations when loading new location
+    panelArrayOffset = { dLat: 0, dLng: 0 };
+    panelArrayRotation = 0;
+    selectedSegmentIndex = null;
+    hideSegmentSummary();
+
     setStatus('Fetching solar data…', false);
     document.getElementById('search-btn').disabled = true;
     try {
@@ -906,6 +1254,12 @@
 
   // Favoured azimuths: E(90), SE(135), S(180), SW(225), W(270)
   const GOOD_AZIMUTHS = new Set(['E','SE','S','SW','W']);
+  let segmentAverageAzimuths = {}; // Store the average azimuth per segment
+  let excludedPanels = new Set(); // Track panels excluded by user
+  let panelArrayOffset = { dLat: 0, dLng: 0 }; // Offset for moving entire array
+  let panelArrayRotation = 0; // Rotation in degrees for entire array
+  let arrayControlsVisible = false; // Track if controls are visible
+  let arrayCentroid = { lat: 0, lng: 0 }; // Center point of entire panel array for rotation
 
   // ── RENDER ALL ────────────────────────────────────────────────────────────
   function renderAll(data) {
@@ -917,6 +1271,21 @@
 
     const allPanels  = sp.solarPanels || [];
     const segments   = sp.roofSegmentStats || [];
+
+    // Calculate average azimuth per segment (panels within each segment use their segment's average)
+    segmentAverageAzimuths = {};
+    segments.forEach((seg, si) => {
+      const panelsInSegment = allPanels.filter(p => p.segmentIndex === si);
+      if (panelsInSegment.length > 0) {
+        let totalAz = 0;
+        panelsInSegment.forEach(p => {
+          totalAz += p.azimuthDegrees || seg.azimuthDegrees;
+        });
+        segmentAverageAzimuths[si] = totalAz / panelsInSegment.length;
+      } else {
+        segmentAverageAzimuths[si] = seg.azimuthDegrees;
+      }
+    });
 
     // Build map: segmentIndex → all panels on that segment
     const panelsBySegment = {};
@@ -974,57 +1343,54 @@
     redrawPanels();
     updateOverlayVisibility();
 
-    // Show the "Select Roof" button now that we have data
-    document.getElementById('select-roof-btn').style.display = 'block';
+    // Show the "Clear Zone" button if a zone is active
+    if (customConstraintPath) {
+      document.getElementById('clear-poly-btn').style.display = 'block';
+    }
   }
 
   // ── CALCULATE GRID DIMENSIONS ─────────────────────────────────────────────
   // Calculates rows × cols for a given panel count
-  function calculateGridDimensions(panelCount) {
-    if (panelCount <= 0) return { rows: 0, cols: 0 };
-
-    let bestRows = 1, bestCols = panelCount;
-
-    // Try to find factors close to square
-    for (let r = Math.floor(Math.sqrt(panelCount)); r >= 1; r--) {
-      if (panelCount % r === 0) {
-        const c = panelCount / r;
-        bestRows = r;
-        bestCols = c;
-        break;
-      }
-    }
-
-    return { rows: bestRows, cols: bestCols };
-  }
-
   // ── STEPPER UI ────────────────────────────────────────────────────────────
   function renderSteppers(segments, panelsBySegment) {
     const list = document.getElementById('seg-config-list');
 
-    list.innerHTML = segments.map((seg, si) => {
-      const panels = panelsBySegment[si] || [];
+    // If a specific segment is selected, filter to only that segment
+    let segmentsToShow = segments;
+    let panelsToShow = panelsBySegment;
+    if (selectedSegmentIndex !== null) {
+      segmentsToShow = [segments[selectedSegmentIndex]];
+      panelsToShow = { 0: panelsBySegment[selectedSegmentIndex] || [] };
+    }
+
+    list.innerHTML = segmentsToShow.map((seg, displaySi) => {
+      const actualSi = selectedSegmentIndex !== null ? selectedSegmentIndex : displaySi;
+      const panels = panelsToShow[displaySi] || [];
       if (!panels.length) return '';
       const dir   = dirLabel(seg.azimuthDegrees);
       const pitch = seg.pitchDegrees.toFixed(1);
       const area  = seg.stats.areaMeters2.toFixed(1);
       const maxSun = Math.max(...seg.stats.sunshineQuantiles).toFixed(0);
-      const count  = segPanelCounts[si] || 0;
+      const count  = segPanelCounts[actualSi] || 0;
       const maxCount = panels.length;
-      const grid = calculateGridDimensions(count);
 
-      return `<div class="seg-stepper" data-si="${si}">
+      const hasBeenMaxed = count > 0; // If count > 0, assume user has interacted
+      const azimuth = seg.azimuthDegrees;
+      const arrowSymbol = ['↑', '↗', '→', '↘', '↓', '↙', '←', '↖'][Math.round(azimuth / 45) % 8];
+      const roofLabel = selectedSegmentIndex !== null ? `Roof ${selectedSegmentIndex + 1}` : `Roof ${actualSi + 1}`;
+      return `<div class="seg-stepper" data-si="${actualSi}">
         <div class="seg-stepper-header">
-          <span class="seg-stepper-title">Roof ${si + 1} — ${dir} facing</span>
-          <span class="seg-stepper-dir">${seg.azimuthDegrees.toFixed(0)}° · ${pitch}° pitch</span>
+          <span class="seg-stepper-title">${roofLabel} — ${dir} facing</span>
+          <span class="seg-stepper-dir"><span style="font-size:18px;margin-right:4px">${arrowSymbol}</span>${azimuth.toFixed(0)}° · ${pitch}° pitch</span>
         </div>
         <div class="seg-stepper-row"><span>Area</span><span>${area} m²</span></div>
         <div class="seg-stepper-row"><span>Max panels</span><span>${maxCount}</span></div>
-        <div class="seg-stepper-row"><span>Grid</span><span>${grid.rows > 0 ? grid.rows + '×' + grid.cols : '—'}</span></div>
         <div class="stepper-control">
-          <button class="stepper-btn" data-si="${si}" data-delta="-1"${count <= 0 ? ' disabled' : ''}>−</button>
-          <div class="stepper-count" id="stepper-count-${si}">${count}</div>
-          <button class="stepper-btn" data-si="${si}" data-delta="1"${count >= maxCount ? ' disabled' : ''}>+</button>
+          <button class="stepper-btn" data-si="${actualSi}" data-action="min" title="Remove all panels"${count <= 0 ? ' disabled' : ''}>Min</button>
+          <button class="stepper-btn" data-si="${actualSi}" data-delta="-1"${count <= 0 ? ' disabled' : ''}>−</button>
+          <div class="stepper-count" id="stepper-count-${actualSi}">${count}</div>
+          <button class="stepper-btn" data-si="${actualSi}" data-delta="+1"${count >= maxCount ? ' disabled' : ''}>+</button>
+          <button class="stepper-btn stepper-right" data-si="${actualSi}" data-action="max" title="Add all panels"${count >= maxCount ? ' disabled' : ''}>Max</button>
         </div>
       </div>`;
     }).join('');
@@ -1032,10 +1398,24 @@
     list.querySelectorAll('.stepper-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         const si = parseInt(btn.dataset.si);
-        const delta = parseInt(btn.dataset.delta);
         const panels = solarData.solarPotential.solarPanels.filter(p => p.segmentIndex === si);
         const maxCount = panels.length;
-        const newCount = Math.max(0, Math.min(maxCount, (segPanelCounts[si] || 0) + delta));
+        let newCount;
+
+        if (btn.dataset.action === 'max') {
+          // Max button: set to maximum
+          newCount = maxCount;
+        } else if (btn.dataset.action === 'min') {
+          // Min button: set to zero
+          newCount = 0;
+        } else if (btn.dataset.delta) {
+          // Plus or minus button: increment/decrement by 1
+          const delta = parseInt(btn.dataset.delta);
+          newCount = Math.max(0, Math.min(maxCount, (segPanelCounts[si] || 0) + delta));
+        } else {
+          return;
+        }
+
         if (newCount === segPanelCounts[si]) return;
         segPanelCounts[si] = newCount;
 
@@ -1046,6 +1426,7 @@
         redrawPanels();
       });
     });
+
   }
 
   // ── SUNSHINE CHART ────────────────────────────────────────────────────────
@@ -1118,6 +1499,7 @@
     const shownBySegment = {};
     Object.entries(segPanelCounts).forEach(([si, cnt]) => { shownBySegment[si] = cnt; });
 
+    const segOffsets = customConstraintPath ? buildSegOffsets() : null;
     const segCursor = {};
     let totalKwh = 0, totalPanels = 0;
     allPanels.forEach(p => {
@@ -1154,6 +1536,9 @@
     if (sbBreak)   sbBreak.textContent   = withinLife ? `${paybackYear.toFixed(1)} yr` : '—';
 
     renderROIChart(totalPanels, annual, sp.panelLifetimeYears);
+
+    // Update array summary panel
+    showArraySummary();
   }
 
   // ── ROI CHART — single net-value line ─────────────────────────────────────
@@ -1295,7 +1680,7 @@
   // ── PANEL COLORS ─────────────────────────────────────────────────────────
   function panelGradientColor(kwh) {
     // orange → green gradient based on kWh/yr output
-    const t = Math.min(1, Math.max(0, kwh / 450));
+    const t = Math.min(1, Math.max(0, kwh / 650));
     const r = Math.round(249 + (34  - 249) * t);
     const g = Math.round(115 + (197 - 115) * t);
     const b = Math.round(22  + (94  - 22)  * t);
@@ -1304,11 +1689,120 @@
 
   let selectedPoly = null;
 
+  // ── BUILD SEG OFFSETS ─────────────────────────────────────────────────────
+  function buildSegOffsets() {
+    if (!solarData) return {};
+    const sp = solarData.solarPotential;
+    const allPanels = sp.solarPanels || [];
+    const segments = sp.roofSegmentStats || [];
+    const offsets = {};
+    segments.forEach((seg, si) => {
+      if (!seg.boundingBox) return;
+      const bb = seg.boundingBox;
+      const bbCLat = (bb.sw.latitude + bb.ne.latitude) / 2;
+      const bbCLng = (bb.sw.longitude + bb.ne.longitude) / 2;
+      const segPanels = allPanels.filter(p => p.segmentIndex === si);
+      if (!segPanels.length) return;
+      const pCLat = segPanels.reduce((s, p) => s + p.center.latitude,  0) / segPanels.length;
+      const pCLng = segPanels.reduce((s, p) => s + p.center.longitude, 0) / segPanels.length;
+      offsets[si] = { dLat: bbCLat - pCLat, dLng: bbCLng - pCLng };
+    });
+    return offsets;
+  }
+
+  // ── COMPUTE ZONE AZIMUTH ─────────────────────────────────────────────────
+  // Calculate the azimuth of the longest edge in the constraint zone
+  function computeZoneAzimuth() {
+    if (!customConstraintPath || customConstraintPath.length < 2) return null;
+
+    let longestEdge = null;
+    let maxDistance = 0;
+
+    // Find the longest edge
+    for (let i = 0; i < customConstraintPath.length; i++) {
+      const p1 = customConstraintPath[i];
+      const p2 = customConstraintPath[(i + 1) % customConstraintPath.length];
+
+      const dLat = p2.lat - p1.lat;
+      const dLng = p2.lng - p1.lng;
+      const distance = Math.sqrt(dLat * dLat + dLng * dLng);
+
+      if (distance > maxDistance) {
+        maxDistance = distance;
+        longestEdge = { p1, p2 };
+      }
+    }
+
+    if (!longestEdge) return null;
+
+    // Calculate azimuth from the longest edge
+    const dLat = longestEdge.p2.lat - longestEdge.p1.lat;
+    const dLng = longestEdge.p2.lng - longestEdge.p1.lng;
+    let azimuth = Math.atan2(dLng, dLat) * 180 / Math.PI;
+
+    // Normalize to 0-360 range
+    azimuth = (azimuth + 360) % 360;
+
+    return azimuth;
+  }
+
+  // ── COMPUTE ZONE OFFSET ──────────────────────────────────────────────────
+  // Calculate how much to shift panels to fit inside the constraint zone
+  function computeZoneOffset() {
+    if (!customConstraintPath || customConstraintPath.length < 3) return { dLat: 0, dLng: 0 };
+    if (!solarData) return { dLat: 0, dLng: 0 };
+
+    const sp = solarData.solarPotential;
+    const allPanels = sp.solarPanels || [];
+    const segments = sp.roofSegmentStats || [];
+    const segOffsets = buildSegOffsets();
+
+    // Find the centroid of all panels that would be shown
+    let totalLat = 0, totalLng = 0, count = 0;
+    const panelsToShow = [];
+
+    allPanels.forEach(p => {
+      const si = p.segmentIndex;
+      const limit = segPanelCounts[si] || 0;
+      if (panelsToShow.filter(panel => panel.segmentIndex === si).length < limit) {
+        panelsToShow.push(p);
+      }
+    });
+
+    if (panelsToShow.length === 0) return { dLat: 0, dLng: 0 };
+
+    panelsToShow.forEach(p => {
+      const si = p.segmentIndex;
+      const off = segOffsets[si] || { dLat: 0, dLng: 0 };
+      totalLat += p.center.latitude + off.dLat;
+      totalLng += p.center.longitude + off.dLng;
+      count++;
+    });
+
+    const panelCentroid = { lat: totalLat / count, lng: totalLng / count };
+
+    // Compute constraint zone centroid
+    let zoneLat = 0, zoneLng = 0;
+    customConstraintPath.forEach(pt => {
+      zoneLat += pt.lat;
+      zoneLng += pt.lng;
+    });
+    const zoneCentroid = { lat: zoneLat / customConstraintPath.length, lng: zoneLng / customConstraintPath.length };
+
+    // Return the shift needed to align panel centroid with zone centroid
+    return {
+      dLat: zoneCentroid.lat - panelCentroid.lat,
+      dLng: zoneCentroid.lng - panelCentroid.lng
+    };
+  }
+
   // ── DRAW PANELS ───────────────────────────────────────────────────────────
   // Redraws all panels according to current segPanelCounts.
   // Constrains panels to roof segment polygons with 20cm inward margin.
-  function redrawPanels() {
-    clearPanelOverlays();
+  function redrawPanels(skipClear = false) {
+    if (!skipClear) {
+      clearPanelOverlays();
+    }
     if (!solarData) return;
     const sp       = solarData.solarPotential;
     const allPanels = sp.solarPanels || [];
@@ -1333,51 +1827,176 @@
     });
 
     // Per-segment offset: align panel centroid to segment bounding-box centre
-    const segOffsets = {};
+    const segOffsets = buildSegOffsets();
+
+    // Compute zone repositioning offset
+    const zoneOffset = customConstraintPath ? computeZoneOffset() : { dLat: 0, dLng: 0 };
+
+    // Calculate azimuth per segment once (always use segment average or API azimuth)
+    const segmentAzimuths = {};
     segments.forEach((seg, si) => {
-      if (!seg.boundingBox) return;
-      const bb = seg.boundingBox;
-      const bbCLat = (bb.sw.latitude  + bb.ne.latitude)  / 2;
-      const bbCLng = (bb.sw.longitude + bb.ne.longitude) / 2;
-      const segPanels = allPanels.filter(p => p.segmentIndex === si);
-      if (!segPanels.length) return;
-      const pCLat = segPanels.reduce((s, p) => s + p.center.latitude,  0) / segPanels.length;
-      const pCLng = segPanels.reduce((s, p) => s + p.center.longitude, 0) / segPanels.length;
-      segOffsets[si] = { dLat: bbCLat - pCLat, dLng: bbCLng - pCLng };
+      segmentAzimuths[si] = segmentAverageAzimuths[si] || seg.azimuthDegrees;
+    });
+
+    // Sort panels by visual position: top-to-bottom (rows), then left-to-right (columns)
+    // Panel 1 is top-left, last panel is bottom-right
+    const sortedPanels = [...allPanels].sort((a, b) => {
+      const rowThreshold = 0.00005; // ~5 meters to group panels in same row
+
+      // First, group into rows by latitude (highest latitude = topmost)
+      const latDiff = b.center.latitude - a.center.latitude;
+
+      if (Math.abs(latDiff) > rowThreshold) {
+        // Different rows: sort by latitude descending (highest/top first)
+        return latDiff;
+      }
+
+      // Same row: sort left-to-right by longitude (lowest/left first)
+      return a.center.longitude - b.center.longitude;
     });
 
     // Track how many panels we've drawn per segment to respect the count cap
     const drawn = {};
     let panelNum = 0;
 
-    allPanels.forEach(p => {
+    // First pass: identify which panels will actually be drawn and calculate centroid
+    let totalLat = 0, totalLng = 0, visibleCount = 0;
+    const panelsToDraw = [];
+
+    sortedPanels.forEach(p => {
       const si = p.segmentIndex;
       const limit = segPanelCounts[si] || 0;
       drawn[si] = (drawn[si] || 0) + 1;
       if (drawn[si] > limit) return;
 
       panelNum++;
-      const off = segOffsets[si] || { dLat: 0, dLng: 0 };
-      const center = { lat: p.center.latitude + off.dLat, lng: p.center.longitude + off.dLng };
+      // Skip if this panel has been excluded
+      if (excludedPanels.has(panelNum)) return;
 
-      // Check if panel center is within the inset roof polygon
+      // This panel will be drawn
+      panelsToDraw.push({ panel: p, panelNum: panelNum, segmentIndex: si });
+
+      // Calculate centroid from raw panel positions
+      const centerLat = p.center.latitude;
+      const centerLng = p.center.longitude;
+      totalLat += centerLat;
+      totalLng += centerLng;
+      visibleCount++;
+    });
+
+    if (visibleCount > 0) {
+      arrayCentroid = { lat: totalLat / visibleCount, lng: totalLng / visibleCount };
+    }
+
+    // Draw panels using exact coordinates from JSON
+    panelsToDraw.forEach(({ panel: p, panelNum: pNum, segmentIndex: si }, index) => {
+      const seg = segments[si];
+      const center = {
+        lat: p.center.latitude,
+        lng: p.center.longitude
+      };
+
+      // Get azimuth from roofSegmentStats
+      const segmentAzimuth = seg.azimuthDegrees;
+      const azRad = segmentAzimuth * Math.PI / 180;
+      const azCos = Math.cos(azRad);
+      const azSin = Math.sin(azRad);
+
+      // Get panel corners from API bounds or calculate them
+      let corners = [];
+      if (p.bounds && p.bounds.length > 0) {
+        // Use API bounds and rotate by segment azimuth
+        corners = p.bounds.map(pt => {
+          const ptLat = pt.latitude;
+          const ptLng = pt.longitude;
+
+          // Offset from center
+          const dy = ptLat - center.lat;
+          const dx = ptLng - center.lng;
+
+          // Rotate by segment azimuth
+          const rotX = dx * azCos - dy * azSin;
+          const rotY = dx * azSin + dy * azCos;
+
+          return {
+            lat: center.lat + rotY,
+            lng: center.lng + rotX
+          };
+        });
+      } else {
+        // Fallback: calculate from standard panel dimensions
+        const panelW = pW;  // 1.045m
+        const panelH = pH;  // 1.879m
+
+        // Convert to degrees
+        const latDegPerMeter = 1 / 111320;
+        const lngDegPerMeter = 1 / (111320 * Math.cos(center.lat * Math.PI / 180));
+        const panelWDeg = panelW * lngDegPerMeter;
+        const panelHDeg = panelH * latDegPerMeter;
+
+        const halfW = panelWDeg / 2;
+        const halfH = panelHDeg / 2;
+
+        // Create corners and rotate by segment azimuth
+        corners = [
+          { x: -halfW, y: halfH },
+          { x: halfW, y: halfH },
+          { x: halfW, y: -halfH },
+          { x: -halfW, y: -halfH }
+        ].map(pt => {
+          const rotX = pt.x * azCos - pt.y * azSin;
+          const rotY = pt.x * azSin + pt.y * azCos;
+          return {
+            lat: center.lat + rotY,
+            lng: center.lng + rotX
+          };
+        });
+      }
+
+      // Apply user-defined array transformations (rotation and offset)
+      if (panelArrayRotation !== 0 || panelArrayOffset.dLat !== 0 || panelArrayOffset.dLng !== 0) {
+        if (panelArrayRotation !== 0) {
+          const rad = panelArrayRotation * Math.PI / 180;
+          const cos = Math.cos(rad);
+          const sin = Math.sin(rad);
+          corners = corners.map(pt => {
+            const dy = pt.lat - arrayCentroid.lat;
+            const dx = pt.lng - arrayCentroid.lng;
+            return {
+              lat: arrayCentroid.lat + (dy * cos - dx * sin),
+              lng: arrayCentroid.lng + (dx * cos + dy * sin)
+            };
+          });
+        }
+
+        // Apply manual offset
+        if (panelArrayOffset.dLat !== 0 || panelArrayOffset.dLng !== 0) {
+          corners = corners.map(pt => ({
+            lat: pt.lat + panelArrayOffset.dLat,
+            lng: pt.lng + panelArrayOffset.dLng
+          }));
+        }
+      }
+
+      // Apply zone offset
+      if (zoneOffset.dLat !== 0 || zoneOffset.dLng !== 0) {
+        corners = corners.map(pt => ({
+          lat: pt.lat + zoneOffset.dLat,
+          lng: pt.lng + zoneOffset.dLng
+        }));
+      }
+
+      // Check constraints
       const roofPoly = segPolygons[si];
-      if (roofPoly && !pointInPolygon(center, roofPoly)) {
-        // Panel center falls outside constrained area; skip it
+      if (roofPoly && !pointInPolygon(center, roofPoly) && (panelArrayOffset.dLat === 0 && panelArrayOffset.dLng === 0 && panelArrayRotation === 0)) {
         return;
       }
 
-      const seg    = segments[si];
-      const azimuth  = seg ? seg.azimuthDegrees : 0;
-      const pitch    = seg ? seg.pitchDegrees   : 0;
-      const cosPitch = Math.cos(pitch * Math.PI / 180);
+      if (customConstraintPath && !pointInPolygon(center, customConstraintPath)) {
+        return;
+      }
 
-      // Ground footprint: for landscape, no pitch correction for width; for portrait, apply cos(pitch) to height
-      const groundW = p.orientation === 'LANDSCAPE' ? pH : pW;
-      const groundH = p.orientation === 'LANDSCAPE' ? pW : pH * cosPitch;
-      const corners    = rotatedRect(center, groundW, groundH, azimuth);
-      const gradColor  = panelGradientColor(p.yearlyEnergyDcKwh);
-      const pNum       = panelNum; // capture for closure
+      const gradColor = panelGradientColor(p.yearlyEnergyDcKwh);
 
       const poly = new google.maps.Polygon({
         paths: corners,
@@ -1416,45 +2035,124 @@
 
   function showPanelInfo(p, num, seg) {
     const dirs = deg => { const d=['N','NE','E','SE','S','SW','W','NW']; return d[Math.round(deg/45)%8]; };
-    const dir = seg ? dirs(seg.azimuthDegrees) : '—';
+    const panelAzimuth = segmentAverageAzimuths[p.segmentIndex] || seg.azimuthDegrees;
+    const dir = dirs(panelAzimuth);
     const pitch = seg ? `${seg.pitchDegrees.toFixed(1)}°` : '—';
-    showMapOverlay(`
-      <span style="font-weight:700;color:#f6c90e;font-size:14px">Panel #${num} (${dir}, ${pitch} pitch)</span>
-      <span style="color:#94a3b8">${p.yearlyEnergyDcKwh.toFixed(1)} kWh/yr</span>
-    `);
+    const html = `<div style="display:flex;flex-direction:column;gap:6px;align-items:center">
+      <span style="font-weight:700;color:#f6c90e;font-size:14px">Panel #${num}</span>
+      <span style="color:#94a3b8;font-size:12px">${dir} facing, ${pitch} pitch</span>
+      <span style="color:#94a3b8;font-size:12px">Azimuth: ${panelAzimuth.toFixed(0)}°</span>
+      <span style="color:#a0aec0;font-size:12px">${p.yearlyEnergyDcKwh.toFixed(1)} kWh/yr</span>
+    </div>`;
+    showMapOverlay(html, num);
   }
 
-  function showMapOverlay(html) {
+  function showMapOverlay(html, panelNum) {
+    // Remove old element if exists to ensure fresh creation
     let el = document.getElementById('map-overlay-bar');
-    if (!el) {
-      el = document.createElement('div');
-      el.id = 'map-overlay-bar';
-      el.style.cssText = `
-        position:absolute; bottom:16px; left:50%; transform:translateX(-50%);
-        z-index:100; background:rgba(26,29,39,0.92); border:1px solid #2d3148;
-        border-radius:10px; padding:10px 16px; font-family:sans-serif; font-size:13px;
-        color:#e2e8f0; box-shadow:0 4px 16px rgba(0,0,0,0.5);
-        display:flex; flex-direction:column; align-items:center; gap:4px;
-        max-width:90vw; text-align:center;
-      `;
-      document.getElementById('map').appendChild(el);
+    if (el) {
+      el.remove();
     }
-    el.style.display = 'flex';
-    el.innerHTML = html +
-      `<span id="map-overlay-close" style="cursor:pointer;color:#64748b;font-size:10px;margin-top:2px">✕ close</span>`;
-    document.getElementById('map-overlay-close').addEventListener('click', () => {
+
+    // Create new element
+    el = document.createElement('div');
+    el.id = 'map-overlay-bar';
+    el.style.cssText = `
+      position:fixed !important;
+      bottom:20px !important;
+      left:50% !important;
+      transform:translateX(-50%) !important;
+      z-index:10000 !important;
+      background:rgba(26,29,39,0.98) !important;
+      border:2px solid #2d3148 !important;
+      border-radius:12px !important;
+      padding:16px 20px !important;
+      font-family:sans-serif !important;
+      font-size:13px !important;
+      color:#e2e8f0 !important;
+      box-shadow:0 4px 20px rgba(0,0,0,0.9) !important;
+      display:flex !important;
+      flex-direction:row !important;
+      align-items:center !important;
+      gap:16px !important;
+      max-width:90vw !important;
+      text-align:center !important;
+      visibility:visible !important;
+      opacity:1 !important;
+      pointer-events:auto !important;
+    `;
+
+    // Create info section
+    const infoEl = document.createElement('div');
+    infoEl.style.cssText = 'display:flex;flex-direction:column;gap:6px;align-items:center;';
+    infoEl.innerHTML = html;
+
+    // Create controls section with arrow buttons for manual positioning and rotation buttons
+    const controlsEl = document.createElement('div');
+    controlsEl.style.cssText = 'display:flex;flex-direction:column;gap:8px;align-items:center;';
+    controlsEl.innerHTML = `
+      <div style="display:flex;flex-direction:column;gap:4px;align-items:center;">
+        <span style="font-size:10px;color:#64748b;font-weight:500">MOVE</span>
+        <button class="array-arrow-btn" data-direction="up" style="width: 36px !important; height: 36px !important; background: rgba(246,201,14,0.2) !important; border: 1.5px solid #f6c90e !important; border-radius: 4px !important; color: #f6c90e !important; font-size: 18px !important; cursor: pointer !important; display: flex !important; align-items: center !important; justify-content: center !important; transition: all 0.15s !important; padding: 0 !important;" title="Move up">↑</button>
+        <div style="display:flex;gap:4px;">
+          <button class="array-arrow-btn" data-direction="left" style="width: 36px !important; height: 36px !important; background: rgba(246,201,14,0.2) !important; border: 1.5px solid #f6c90e !important; border-radius: 4px !important; color: #f6c90e !important; font-size: 18px !important; cursor: pointer !important; display: flex !important; align-items: center !important; justify-content: center !important; transition: all 0.15s !important; padding: 0 !important;" title="Move left">←</button>
+          <button class="array-arrow-btn" data-direction="down" style="width: 36px !important; height: 36px !important; background: rgba(246,201,14,0.2) !important; border: 1.5px solid #f6c90e !important; border-radius: 4px !important; color: #f6c90e !important; font-size: 18px !important; cursor: pointer !important; display: flex !important; align-items: center !important; justify-content: center !important; transition: all 0.15s !important; padding: 0 !important;" title="Move down">↓</button>
+          <button class="array-arrow-btn" data-direction="right" style="width: 36px !important; height: 36px !important; background: rgba(246,201,14,0.2) !important; border: 1.5px solid #f6c90e !important; border-radius: 4px !important; color: #f6c90e !important; font-size: 18px !important; cursor: pointer !important; display: flex !important; align-items: center !important; justify-content: center !important; transition: all 0.15s !important; padding: 0 !important;" title="Move right">→</button>
+        </div>
+      </div>
+    `;
+
+    el.appendChild(infoEl);
+    el.appendChild(controlsEl);
+    document.body.appendChild(el);
+
+    // Attach event listeners to the arrow buttons for movement
+    controlsEl.querySelectorAll('.array-arrow-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const direction = btn.dataset.direction;
+        const pixelDistance = 0.000005; // approximately 0.5 pixel movement in degrees
+
+        switch(direction) {
+          case 'up':
+            panelArrayOffset.dLat += pixelDistance;
+            break;
+          case 'down':
+            panelArrayOffset.dLat -= pixelDistance;
+            break;
+          case 'left':
+            panelArrayOffset.dLng -= pixelDistance;
+            break;
+          case 'right':
+            panelArrayOffset.dLng += pixelDistance;
+            break;
+        }
+
+        // Redraw panels with new position
+        overlays.panels.forEach(p => p.setMap(null));
+        overlays.panels = [];
+        redrawPanels(true);
+      });
+    });
+
+    // Close when clicking outside the card
+    const closeHandler = () => {
       if (selectedPoly) {
         selectedPoly.setOptions({ fillOpacity: 0.88, strokeColor: '#000000', strokeWeight: 0.5, zIndex: 1 });
         selectedPoly = null;
       }
       hideMapOverlay();
       hideColorLegend();
-    });
+    };
+
+    // Close on map click
+    if (map && !map._panelInfoClickListener) {
+      map._panelInfoClickListener = map.addListener('click', closeHandler);
+    }
   }
 
   function hideMapOverlay() {
     const el = document.getElementById('map-overlay-bar');
-    if (el) el.style.display = 'none';
+    if (el) el.remove();
   }
 
   // ── COLOR SCALE LEGEND (shown only when a panel is selected) ─────────────
@@ -1472,7 +2170,7 @@
       `;
       // Build gradient bar: green (high) at top → orange (low) at bottom
       el.innerHTML = `
-        <div style="font-size:9px;color:#94a3b8;margin-bottom:2px">450</div>
+        <div style="font-size:9px;color:#94a3b8;margin-bottom:2px">650</div>
         <div style="width:14px;height:120px;border-radius:4px;
           background:linear-gradient(to bottom,
             rgb(34,197,94) 0%,
@@ -1492,6 +2190,149 @@
   function hideColorLegend() {
     const el = document.getElementById('color-legend');
     if (el) el.style.display = 'none';
+  }
+
+  function showArraySummary() {
+    if (!solarData) return;
+    const sp = solarData.solarPotential;
+    const allPanels = sp.solarPanels || [];
+    const price = parseFloat(document.getElementById('price-per-kwh').value) || 0.28;
+    const eff   = (parseFloat(document.getElementById('efficiency').value) || 80) / 100;
+
+    const shownBySegment = {};
+    Object.entries(segPanelCounts).forEach(([si, cnt]) => { shownBySegment[si] = cnt; });
+    const segCursor = {};
+    let totalKwh = 0, totalPanels = 0;
+    allPanels.forEach(p => {
+      const si = p.segmentIndex;
+      const limit = shownBySegment[si] || 0;
+      segCursor[si] = (segCursor[si] || 0) + 1;
+      if (segCursor[si] <= limit) {
+        totalKwh += p.yearlyEnergyDcKwh;
+        totalPanels++;
+      }
+    });
+
+    const kwhYear = totalKwh * eff;
+    const annual  = kwhYear * price;
+    const installCost = totalPanels * 300 + 1500;
+    const paybackYear = annual > 0 ? installCost / annual : null;
+    const withinLife  = paybackYear !== null && paybackYear <= sp.panelLifetimeYears;
+
+    let el = document.getElementById('array-summary-panel');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'array-summary-panel';
+      document.body.appendChild(el);
+    }
+
+    el.innerHTML = `
+      <div class="array-summary-title">Array Summary</div>
+      <div class="array-summary-item">
+        <span class="array-summary-label">Total Output:</span>
+        <span class="array-summary-value">${kwhYear.toLocaleString('en', { maximumFractionDigits: 0 })} kWh/yr</span>
+      </div>
+      <div class="array-summary-item">
+        <span class="array-summary-label">Annual Savings:</span>
+        <span class="array-summary-value">€${annual.toLocaleString('en', { maximumFractionDigits: 0 })}</span>
+      </div>
+      <div class="array-summary-item">
+        <span class="array-summary-label">Panels:</span>
+        <span class="array-summary-value">${totalPanels}</span>
+      </div>
+      <div class="array-summary-item">
+        <span class="array-summary-label">ROI:</span>
+        <span class="array-summary-value">${withinLife ? `${paybackYear.toFixed(1)} yrs` : `>${sp.panelLifetimeYears} yrs`}</span>
+      </div>
+    `;
+  }
+
+  function hideArraySummary() {
+    const el = document.getElementById('array-summary-panel');
+    if (el) el.remove();
+  }
+
+  function showSegmentSummary(segmentIndex) {
+    if (!solarData || segmentIndex === null) {
+      hideSegmentSummary();
+      return;
+    }
+
+    const sp = solarData.solarPotential;
+    const segments = sp.roofSegmentStats || [];
+    if (segmentIndex < 0 || segmentIndex >= segments.length) {
+      hideSegmentSummary();
+      return;
+    }
+
+    const seg = segments[segmentIndex];
+    const dir = dirLabel(seg.azimuthDegrees);
+    const azimuth = seg.azimuthDegrees.toFixed(0);
+    const pitch = seg.pitchDegrees.toFixed(1);
+    const area = seg.stats.areaMeters2.toFixed(1);
+    const maxSun = Math.max(...seg.stats.sunshineQuantiles).toFixed(0);
+    const panelCount = (segPanelCounts[segmentIndex] || 0);
+    const maxPanels = (solarData.solarPotential.solarPanels || []).filter(p => p.segmentIndex === segmentIndex).length;
+
+    let el = document.getElementById('segment-summary-panel');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'segment-summary-panel';
+      document.body.appendChild(el);
+    }
+
+    el.innerHTML = `
+      <div class="segment-summary-title">Roof Segment ${segmentIndex + 1}</div>
+      <div class="segment-summary-item">
+        <span class="segment-summary-label">Direction:</span>
+        <span class="segment-summary-value">${dir}</span>
+      </div>
+      <div class="segment-summary-item">
+        <span class="segment-summary-label">Azimuth:</span>
+        <span class="segment-summary-value">${azimuth}°</span>
+      </div>
+      <div class="segment-summary-item">
+        <span class="segment-summary-label">Pitch:</span>
+        <span class="segment-summary-value">${pitch}°</span>
+      </div>
+      <div class="segment-summary-item">
+        <span class="segment-summary-label">Area:</span>
+        <span class="segment-summary-value">${area} m²</span>
+      </div>
+      <div class="segment-summary-item">
+        <span class="segment-summary-label">Max Sunshine:</span>
+        <span class="segment-summary-value">${maxSun} kWh</span>
+      </div>
+      <div class="segment-summary-item">
+        <span class="segment-summary-label">Panels:</span>
+        <span class="segment-summary-value">${panelCount}/${maxPanels}</span>
+      </div>
+    `;
+
+    // Add close handler: clicking the panel closes it, and clicking elsewhere also closes it
+    el.onclick = (e) => {
+      e.stopPropagation();
+      hideSegmentSummary();
+      selectedSegmentIndex = null;
+      if (solarData && solarData.solarPotential) {
+        renderSteppers(solarData.solarPotential.roofSegmentStats, panelsBySegment);
+      }
+    };
+
+    if (map && !map._segmentSummaryClickListener) {
+      map._segmentSummaryClickListener = map.addListener('click', () => {
+        hideSegmentSummary();
+        selectedSegmentIndex = null;
+        if (solarData && solarData.solarPotential) {
+          renderSteppers(solarData.solarPotential.roofSegmentStats, panelsBySegment);
+        }
+      });
+    }
+  }
+
+  function hideSegmentSummary() {
+    const el = document.getElementById('segment-summary-panel');
+    if (el) el.remove();
   }
 
   function rotatedRect(center, wM, hM, azimuthDeg) {
@@ -1699,6 +2540,20 @@
     });
   }
 
+  // ── POLYGON BOUNDS ────────────────────────────────────────────────────────
+  // Gets the bounding box (min/max lat/lng) of a polygon
+  function polygonBounds(polygon) {
+    let minLat = Infinity, maxLat = -Infinity;
+    let minLng = Infinity, maxLng = -Infinity;
+    for (const pt of polygon) {
+      minLat = Math.min(minLat, pt.lat);
+      maxLat = Math.max(maxLat, pt.lat);
+      minLng = Math.min(minLng, pt.lng);
+      maxLng = Math.max(maxLng, pt.lng);
+    }
+    return { minLat, maxLat, minLng, maxLng };
+  }
+
   // ── POINT IN POLYGON TEST ─────────────────────────────────────────────────
   // Uses ray-casting algorithm to test if a point is inside a polygon
   function pointInPolygon(point, polygon) {
@@ -1711,6 +2566,55 @@
       if (intersect) inside = !inside;
     }
     return inside;
+  }
+
+  // ── CALCULATE POLYGON CENTROID ───────────────────────────────────────────
+  // Finds the middle point (centroid) of a polygon defined by vertices
+  function calculatePolygonCentroid(polygon) {
+    if (!polygon || polygon.length === 0) return null;
+    let totalLat = 0, totalLng = 0;
+    polygon.forEach(point => {
+      totalLat += point.lat;
+      totalLng += point.lng;
+    });
+    return {
+      lat: totalLat / polygon.length,
+      lng: totalLng / polygon.length
+    };
+  }
+
+  // ── FETCH SOLAR DATA FOR ZONE CENTROID ─────────────────────────────────
+  // Gets solar potential data for the centroid of the drawn zone and displays flux overlay
+  async function fetchSolarDataForZone(centroid) {
+    if (!centroid) return;
+
+    try {
+      setStatus('Fetching solar data for zone...', true);
+      const url = `https://solar.googleapis.com/v1/buildingInsights:findClosest`
+        + `?location.latitude=${centroid.lat}&location.longitude=${centroid.lng}`
+        + `&requiredQuality=HIGH&key=${API_KEY}`;
+
+      const response = await fetch(url);
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        console.warn('[Zone Solar] API error:', err);
+        setStatus('Could not fetch solar data for zone', false);
+        return;
+      }
+
+      const data = await response.json();
+      if (data.solarPotential) {
+        console.log('[Zone Solar] Data fetched for centroid:', centroid, data.solarPotential);
+
+        // Draw the solar flux heatmap overlay for the zone
+        await drawFluxOverlay(data);
+
+        setStatus('Zone solar data updated with flux layer', false);
+      }
+    } catch (e) {
+      console.warn('[Zone Solar] fetch error', e);
+      setStatus('Error fetching zone solar data', false);
+    }
   }
 
   // ── ROTATE TO ROOF COORDINATES ────────────────────────────────────────────
@@ -1837,7 +2741,6 @@
     const btn = document.getElementById('select-roof-btn');
     if (btn) {
       btn.classList.remove('active');
-      btn.style.display = 'none';
     }
     if (mapClickListener) {
       mapClickListener.remove();
@@ -1846,17 +2749,33 @@
     if (map) {
       map.setOptions({ draggableCursor: '' });
     }
+
+    // Clear drawn polygon constraint
+    if (customConstraintPoly) {
+      customConstraintPoly.setMap(null);
+      customConstraintPoly = null;
+    }
+    customConstraintPath = null;
+    drawingPolygon = false;
+    if (drawingManager) {
+      drawingManager.setDrawingMode(null);
+    }
+    const drawBtn = document.getElementById('draw-poly-btn');
+    if (drawBtn) { drawBtn.classList.remove('active'); drawBtn.style.display = 'none'; }
+    const clearBtn = document.getElementById('clear-poly-btn');
+    if (clearBtn) clearBtn.style.display = 'none';
   }
-  function clearPanelOverlays() {
+  function clearPanelOverlays(preserveInfo = false) {
     overlays.panels.forEach(p => p.setMap(null));
     overlays.panels = [];
     selectedPoly = null;
-    hideMapOverlay();
+    if (!preserveInfo) {
+      hideMapOverlay();
+    }
     hideColorLegend();
   }
   function clearLabelOverlays() {
     overlays.labels = [];
-    hideMapOverlay();
   }
 
   // ── UTILS ─────────────────────────────────────────────────────────────────
@@ -1869,7 +2788,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/geotiff@2.1.3/dist-browser/geotiff.js"></script>
 <script
-  src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDMpo4xVLbEj0G1l_9WaaDW4kTpIg7TZaw&libraries=places&callback=initMap"
+  src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDMpo4xVLbEj0G1l_9WaaDW4kTpIg7TZaw&libraries=places,drawing&callback=initMap"
   async defer>
 </script>
 
