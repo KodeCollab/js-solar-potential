@@ -65,6 +65,19 @@
     }
     #search-btn:hover { background: #ffe040; }
     #search-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    #gps-btn {
+      padding: 8px 16px;
+      border-radius: 8px;
+      border: none;
+      background: #4f46e5;
+      color: #fff;
+      font-weight: 700;
+      font-size: 14px;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    #gps-btn:hover { background: #6366f1; }
+    #gps-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
     /* Map provider selector */
     /* suppress any remaining Google Maps layer / rotate controls */
@@ -418,6 +431,7 @@
   <h1>☀ Solar Explorer</h1>
   <input id="address-input" type="text" placeholder="Enter address or lat, lng" autofocus />
   <button id="search-btn">Search</button>
+  <button id="gps-btn" title="Use your GPS location">📍 My Location</button>
   <span id="status-msg">Enter an address to begin</span>
   <button id="sidebar-toggle">☰</button>
 </div>
@@ -658,6 +672,7 @@
     setTimeout(() => document.getElementById('address-input').focus(), 300);
 
     document.getElementById('search-btn').addEventListener('click', handleSearch);
+    document.getElementById('gps-btn').addEventListener('click', handleGPS);
     document.getElementById('address-input').addEventListener('keydown', e => {
       if (e.key === 'Enter') handleSearch();
     });
@@ -700,6 +715,41 @@
     } finally {
       document.getElementById('search-btn').disabled = false;
     }
+  }
+
+  // ── GPS LOCATION HANDLER ──────────────────────────────────────────────────
+  function handleGPS() {
+    const gpsBtn = document.getElementById('gps-btn');
+    gpsBtn.disabled = true;
+    setStatus('Getting location…', false);
+
+    if (!navigator.geolocation) {
+      setStatus('Geolocation not supported by your browser', true);
+      gpsBtn.disabled = false;
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const lat = position.coords.latitude;
+        const lng = position.coords.longitude;
+        document.getElementById('address-input').value = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+        setStatus('Location found, searching…', false);
+        runSearch(lat, lng, `📍 ${lat.toFixed(5)}, ${lng.toFixed(5)}`).finally(() => {
+          gpsBtn.disabled = false;
+        });
+      },
+      (error) => {
+        const errorMessages = {
+          1: 'Location access denied. Please enable location permissions.',
+          2: 'Location unavailable. Please try again.',
+          3: 'Location request timed out.'
+        };
+        setStatus(errorMessages[error.code] || 'Unknown location error', true);
+        gpsBtn.disabled = false;
+      },
+      { timeout: 10000, enableHighAccuracy: true }
+    );
   }
 
   // ── SHARED SEARCH RUNNER ──────────────────────────────────────────────────
