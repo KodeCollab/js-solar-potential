@@ -1260,6 +1260,7 @@
   // Favoured azimuths: E(90), SE(135), S(180), SW(225), W(270)
   const GOOD_AZIMUTHS = new Set(['E','SE','S','SW','W']);
   let segmentAverageAzimuths = {}; // Store the average azimuth per segment
+  let globalBestSegmentIndex = 0; // Best segment's index for uniform grid alignment
   let excludedPanels = new Set(); // Track panels excluded by user
   let panelArrayOffset = { dLat: 0, dLng: 0 }; // Offset for moving entire array
   let panelArrayRotation = 0; // Rotation in degrees for entire array
@@ -1310,6 +1311,7 @@
     });
 
     if (bestSi === null) bestSi = Object.keys(panelsBySegment).map(Number)[0] ?? 0;
+    globalBestSegmentIndex = bestSi; // Store for use in redrawPanels
 
     // Initialise segPanelCounts: only the chosen segment at max count
     segPanelCounts = {};
@@ -1750,95 +1752,14 @@
       segmentAzimuths[si] = segmentAverageAzimuths[si] || seg.azimuthDegrees;
     });
 
-    // ── CLEAN GRID LAYOUT ────────────────────────────────────────────────────
-    // For each segment, project all panels into azimuth-aligned "roof space",
-    // snap to integer grid positions, then convert back to lat/lng.
-    // This eliminates the stepped/staggered look from the raw API coordinates.
-
-    // Build per-segment snapped grid positions
-    const segmentGridPositions = {}; // si → Map(panelRef → {snappedLat, snappedLng})
-
-    segments.forEach((seg, si) => {
-      const segPanels = allPanels.filter(p => p.segmentIndex === si);
-      if (!segPanels.length) return;
-
-      const azDeg = seg.azimuthDegrees || 0;
-      const azRad = azDeg * Math.PI / 180;
-
-      // Anchor = centroid of all panels in this segment
-      const anchorLat = segPanels.reduce((s, p) => s + p.center.latitude, 0) / segPanels.length;
-      const anchorLng = segPanels.reduce((s, p) => s + p.center.longitude, 0) / segPanels.length;
-
-      const latM = 111320;
-      const lngM = 111320 * Math.cos(anchorLat * Math.PI / 180);
-
-      // Project each panel center into azimuth-rotated 2D space (meters)
-      // u = along the azimuth direction (left-right across the roof)
-      // v = perpendicular to azimuth (up-down the slope)
-      const cosAz = Math.cos(azRad), sinAz = Math.sin(azRad);
-      const projections = segPanels.map(p => {
-        const dLat = (p.center.latitude  - anchorLat) * latM;
-        const dLng = (p.center.longitude - anchorLng) * lngM;
-        // Rotate into azimuth frame
-        const u =  dLng * cosAz + dLat * sinAz;
-        const v = -dLng * sinAz + dLat * cosAz;
-        return { panel: p, u, v };
-      });
-
-      // Determine grid step: use panel dimensions (portrait = W wide, H tall)
-      // Step across azimuth = panel width + small gap; step along slope = panel height + gap
-      const gapM = 0.02; // 2 cm gap between panels
-      const stepU = pW + gapM;
-      const stepV = pH + gapM;
-
-      // Snap each panel to the nearest grid integer
-      const snapped = projections.map(({ panel, u, v }) => ({
-        panel,
-        col: Math.round(u / stepU),
-        row: Math.round(v / stepV),
-      }));
-
-      // Sort: row descending (top of roof = positive v = top of grid), then col ascending
-      snapped.sort((a, b) => b.row - a.row || a.col - b.col);
-
-      // Resolve collisions: if two panels land on same cell, nudge by index
-      const occupied = new Map();
-      snapped.forEach(s => {
-        let key = `${s.row},${s.col}`;
-        let tries = 0;
-        while (occupied.has(key) && tries < 20) {
-          s.col++;
-          key = `${s.row},${s.col}`;
-          tries++;
-        }
-        occupied.set(key, true);
-      });
-
-      // Convert snapped grid positions back to lat/lng
-      const positions = new Map();
-      snapped.forEach(({ panel, col, row }) => {
-        const uM = col * stepU;
-        const vM = row * stepV;
-        // Inverse rotate from azimuth frame back to geographic
-        const dLng =  uM * cosAz - vM * sinAz;
-        const dLat =  uM * sinAz + vM * cosAz;
-        positions.set(panel, {
-          lat: anchorLat + dLat / latM,
-          lng: anchorLng + dLng / lngM,
-        });
-      });
-
-      segmentGridPositions[si] = positions;
-    });
-
-    // Sort all panels: by segment, then by snapped row desc, col asc for panel numbering
+    // Use raw API panel coordinates directly — the API already places each panel
+    // accurately on the roof. Snapping to an integer grid drifts panels off the
+    // actual roof surface visible in the satellite image.
     const sortedPanels = [...allPanels].sort((a, b) => {
       if (a.segmentIndex !== b.segmentIndex) return a.segmentIndex - b.segmentIndex;
-      const posA = segmentGridPositions[a.segmentIndex]?.get(a) || { lat: a.center.latitude, lng: a.center.longitude };
-      const posB = segmentGridPositions[b.segmentIndex]?.get(b) || { lat: b.center.latitude, lng: b.center.longitude };
-      const latDiff = posB.lat - posA.lat;
+      const latDiff = b.center.latitude - a.center.latitude;
       if (Math.abs(latDiff) > 1e-8) return latDiff;
-      return posA.lng - posB.lng;
+      return a.center.longitude - b.center.longitude;
     });
 
     // Track how many panels we've drawn per segment to respect the count cap
@@ -1858,11 +1779,11 @@
       panelNum++;
       if (excludedPanels.has(panelNum)) return;
 
-      const snappedCenter = segmentGridPositions[si]?.get(p) || { lat: p.center.latitude, lng: p.center.longitude };
-      panelsToDraw.push({ panel: p, panelNum, segmentIndex: si, center: snappedCenter });
+      const center = { lat: p.center.latitude, lng: p.center.longitude };
+      panelsToDraw.push({ panel: p, panelNum, segmentIndex: si, center });
 
-      totalLat += snappedCenter.lat;
-      totalLng += snappedCenter.lng;
+      totalLat += center.lat;
+      totalLng += center.lng;
       visibleCount++;
     });
 
@@ -1870,42 +1791,45 @@
       arrayCentroid = { lat: totalLat / visibleCount, lng: totalLng / visibleCount };
     }
 
-    // Draw panels using snapped grid positions, rotated to segment azimuth
+    // Draw panels using API coordinates, rotated to each segment's azimuth
     panelsToDraw.forEach(({ panel: p, panelNum: pNum, segmentIndex: si, center }) => {
       const seg = segments[si];
 
-      // Get azimuth from roofSegmentStats
+      // Use each segment's own azimuth to respect their individual orientations
       const segmentAzimuth = seg.azimuthDegrees;
       const azRad = segmentAzimuth * Math.PI / 180;
       const azCos = Math.cos(azRad);
       const azSin = Math.sin(azRad);
 
-      // Always calculate corners from panel dimensions, rotated to azimuth
-      // (ignore API bounds which are already staggered)
-      const latDegPerMeter = 1 / 111320;
-      const lngDegPerMeter = 1 / (111320 * Math.cos(center.lat * Math.PI / 180));
+      // Calculate corners from panel dimensions, rotated to azimuth.
+      // Work in meters first, then convert to lat/lng after rotation.
+      const mPerLat = 111320;
+      const mPerLng = 111320 * Math.cos(center.lat * Math.PI / 180);
 
-      // Portrait: width along azimuth, height along slope
-      // Landscape: swap width and height
+      // Azimuth = downslope direction (v axis). u axis = across the roof (left-right).
+      // Landscape: long side (pH) runs ACROSS azimuth (u), short side (pW) runs downslope (v).
+      // Portrait:  short side (pW) runs ACROSS azimuth (u), long side (pH) runs downslope (v).
       const isLandscape = p.orientation === 'LANDSCAPE';
-      const halfW = (isLandscape ? pH : pW) / 2 * lngDegPerMeter;
-      const halfH = (isLandscape ? pW : pH) / 2 * latDegPerMeter;
+      const halfU = (isLandscape ? pH : pW) / 2;  // meters across azimuth (left-right)
+      const halfV = (isLandscape ? pW : pH) / 2;  // meters along azimuth (downslope)
 
-      // Unit corners in azimuth-frame (x = across azimuth, y = along slope)
-      let corners = [
-        { x: -halfW, y:  halfH },
-        { x:  halfW, y:  halfH },
-        { x:  halfW, y: -halfH },
-        { x: -halfW, y: -halfH },
-      ].map(pt => {
-        // Rotate from azimuth frame to geographic frame
-        const rotX = pt.x * azCos - pt.y * azSin;
-        const rotY = pt.x * azSin + pt.y * azCos;
-        return {
-          lat: center.lat + rotY,
-          lng: center.lng + rotX,
-        };
-      });
+      // Corners in panel-local meters: u = across roof, v = downslope
+      const localCorners = [
+        { u: -halfU, v: -halfV },
+        { u:  halfU, v: -halfV },
+        { u:  halfU, v:  halfV },
+        { u: -halfU, v:  halfV },
+      ];
+
+      // Rotate from panel frame into geographic frame.
+      // Azimuth is the downslope direction (clockwise from North).
+      // v runs ALONG azimuth (downslope), u runs ACROSS (left-right on the roof).
+      //   dLat =  v·cos(az) - u·sin(az)
+      //   dLng =  v·sin(az) + u·cos(az)
+      let corners = localCorners.map(({ u, v }) => ({
+        lat: center.lat + (v * azCos - u * azSin) / mPerLat,
+        lng: center.lng + (v * azSin + u * azCos) / mPerLng,
+      }));
 
       // Apply user-defined array transformations (rotation and offset)
       if (panelArrayRotation !== 0 || panelArrayOffset.dLat !== 0 || panelArrayOffset.dLng !== 0) {
