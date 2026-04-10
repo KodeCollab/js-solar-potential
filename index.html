@@ -108,6 +108,108 @@
     #select-roof-btn:disabled { opacity: 0.5; cursor: not-allowed; }
     #select-roof-btn.active { background: #be185d; }
 
+    #draw-polygon-btn {
+      padding: 8px 16px;
+      border-radius: 8px;
+      border: none;
+      background: #7c3aed;
+      color: #fff;
+      font-weight: 700;
+      font-size: 14px;
+      cursor: pointer;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    #draw-polygon-btn:hover:not(:disabled) { background: #6d28d9; }
+    #draw-polygon-btn.active { background: #5b21b6; outline: 2px solid #a78bfa; }
+    #draw-polygon-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    #draw-polygon-finish-btn {
+      padding: 8px 16px;
+      border-radius: 8px;
+      border: none;
+      background: #16a34a;
+      color: #fff;
+      font-weight: 700;
+      font-size: 14px;
+      cursor: pointer;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    #draw-polygon-finish-btn:hover { background: #15803d; }
+
+    #draw-polygon-summary {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      z-index: 500;
+      background: rgba(26,29,39,0.95);
+      border: 2px solid #a78bfa;
+      border-radius: 12px;
+      padding: 14px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      font-family: sans-serif;
+      color: #e2e8f0;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.9);
+      width: 210px;
+      pointer-events: auto;
+    }
+    .draw-polygon-summary-title {
+      font-size: 12px !important;
+      font-weight: 700 !important;
+      color: #a78bfa !important;
+      text-transform: uppercase !important;
+      letter-spacing: 0.05em !important;
+      display: flex !important;
+      justify-content: space-between !important;
+      align-items: center !important;
+    }
+    #array-rotate-icon {
+      position: absolute;
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      background: rgba(26,29,39,0.92);
+      border: 2px solid #a78bfa;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: grab;
+      color: #a78bfa;
+      font-size: 16px;
+      user-select: none;
+      transition: opacity 0.15s, border-color 0.15s, color 0.15s;
+      z-index: 600;
+      pointer-events: auto;
+      transform: translate(50%, 50%);
+    }
+    #array-rotate-icon:hover { border-color: #c4b5fd; color: #c4b5fd; }
+    #array-rotate-icon.dragging { cursor: grabbing; border-color: #f6c90e; color: #f6c90e; }
+
+    #draw-array-rotate-icon {
+      position: absolute;
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      background: rgba(26,29,39,0.92);
+      border: 2px solid #f6c90e;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: grab;
+      color: #f6c90e;
+      font-size: 16px;
+      user-select: none;
+      transition: opacity 0.15s, border-color 0.15s, color 0.15s;
+      z-index: 600;
+      pointer-events: auto;
+      transform: translate(50%, 50%);
+    }
+    #draw-array-rotate-icon:hover { border-color: #ffe040; color: #ffe040; }
+    #draw-array-rotate-icon.dragging { cursor: grabbing; border-color: #fff; color: #fff; }
+
     /* Map provider selector */
     /* suppress any remaining Google Maps layer / rotate controls */
     .gm-style-cc, .gm-bundled-control { display: none !important; }
@@ -574,46 +676,6 @@
       position: relative;
       overflow: visible;
     }
-    .array-control-icon {
-      width: 44px !important;
-      height: 44px !important;
-      padding: 0 !important;
-      background: rgba(26, 29, 39, 0.85) !important;
-      border: 2px solid #f6c90e !important;
-      border-radius: 6px !important;
-      cursor: grab !important;
-      font-size: 22px !important;
-      display: flex !important;
-      align-items: center !important;
-      justify-content: center !important;
-      transition: all 0.15s !important;
-      color: #f6c90e !important;
-      user-select: none !important;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.7) !important;
-      visibility: visible !important;
-      opacity: 1 !important;
-      pointer-events: auto !important;
-    }
-    .array-control-icon:hover {
-      background: rgba(246, 201, 14, 0.3) !important;
-      transform: scale(1.05) !important;
-    }
-    .array-control-icon.active {
-      background: #f6c90e !important;
-      color: #0f1117 !important;
-      cursor: grabbing !important;
-    }
-    .array-arrow-btn {
-      transition: all 0.15s !important;
-    }
-    .array-arrow-btn:hover {
-      background: rgba(246, 201, 14, 0.4) !important;
-      transform: scale(1.1) !important;
-    }
-    .array-arrow-btn:active {
-      background: #f6c90e !important;
-      color: #0f1117 !important;
-    }
 
   </style>
 </head>
@@ -626,6 +688,8 @@
   <button id="search-btn">Search</button>
   <button id="gps-btn" title="Use your GPS location">📍 My Location</button>
   <button id="select-roof-btn" title="Click on a roof to select it">🏠 Select Roof</button>
+  <button id="draw-polygon-btn" title="Search for a building first, then draw a zone" disabled>✏ Draw Zone</button>
+  <button id="draw-polygon-finish-btn" title="Close and fill the polygon" style="display:none">✓ Finish</button>
   <button id="ruler-btn" title="Measure distance on the map">📏 Ruler</button>
   <button id="clear-ruler-btn" title="Clear ruler measurement" style="display:none">✕ Ruler</button>
   <span id="status-msg">Enter an address to begin</span>
@@ -804,6 +868,21 @@
   let segPanelCounts = {};
   let selectedSegmentIndex = null; // When a specific roof segment is selected via click
 
+  // Draw Zone polygon tool state
+  let drawingPolygon = false;
+  let drawPolyPoints = [];
+  let drawPolyLine = null;
+  let drawPolyShape = null;
+  let drawPolyPanels = [];
+  let drawPolyClickListener = null;
+  let drawPolyDblClickListener = null;
+  let drawPolyMoveListener = null;
+  let drawPolyOrientation = 'PORTRAIT'; // 'PORTRAIT' or 'LANDSCAPE'
+  let drawPolyMoveState = null; // { startX, startY, startPoints, mousemoveHandler, mouseupHandler }
+  let drawPolyRotation = 0; // degrees, applied around the centroid of the draw-zone panels
+  let drawPolyBounds = { minLat: Infinity, maxLat: -Infinity, minLng: Infinity, maxLng: -Infinity };
+  let drawRotateIconHideTimer = null;
+
   // ── MOBILE SIDEBAR TOGGLE ─────────────────────────────────────────────────
   document.getElementById('sidebar-toggle').addEventListener('click', () => {
     document.getElementById('sidebar').classList.toggle('open');
@@ -864,6 +943,7 @@
     infoWindow = new google.maps.InfoWindow();
 
     map.addListener('tilt_changed', () => { if (map.getTilt() !== 0) map.setTilt(0); });
+    map.addListener('bounds_changed', () => { updateRotateIcon(); updateDrawRotateIcon(); });
 
     // Ensure map fills its container after fonts/layout settle
     setTimeout(() => google.maps.event.trigger(map, 'resize'), 200);
@@ -884,6 +964,8 @@
 
     document.getElementById('ruler-btn').addEventListener('click', handleRulerToggle);
     document.getElementById('clear-ruler-btn').addEventListener('click', handleClearRuler);
+    document.getElementById('draw-polygon-btn').addEventListener('click', handleDrawPolygon);
+    document.getElementById('draw-polygon-finish-btn').addEventListener('click', closeDrawnPolygon);
   }
 
   // ── SEARCH ────────────────────────────────────────────────────────────────
@@ -1023,7 +1105,759 @@
     }
   }
 
-  // ── DRAW POLYGON ──────────────────────────────────────────────────────────
+  // ── DRAW ZONE POLYGON TOOL ────────────────────────────────────────────────
+
+  function handleDrawPolygon() {
+    const btn = document.getElementById('draw-polygon-btn');
+    drawingPolygon = !drawingPolygon;
+    btn.classList.toggle('active', drawingPolygon);
+
+    if (drawingPolygon) {
+      // Cancel select-roof if active
+      if (selectingRoof) handleSelectRoof();
+      clearDrawnPolygon();
+      drawPolyPoints = [];
+
+      setStatus('Click to add vertices. Press ✓ Finish (or click the first point) when done.', false);
+      map.setOptions({ draggableCursor: 'crosshair', disableDoubleClickZoom: true });
+      document.getElementById('draw-polygon-finish-btn').style.display = '';
+
+      // Hide API panels immediately so the map is clear for drawing
+      overlays.panels.forEach(p => p.setMap(null));
+
+      drawPolyClickListener = map.addListener('click', (e) => {
+        const lat = e.latLng.lat();
+        const lng = e.latLng.lng();
+
+        // If clicking near the first point (< 2m), close the polygon
+        if (drawPolyPoints.length >= 3) {
+          const first = drawPolyPoints[0];
+          const latM = 111320, lngM = 111320 * Math.cos(lat * Math.PI / 180);
+          const dist = Math.hypot((lat - first.lat) * latM, (lng - first.lng) * lngM);
+          if (dist < 3) { closeDrawnPolygon(); return; }
+        }
+
+        drawPolyPoints.push({ lat, lng });
+        updateDrawPreview();
+      });
+
+      drawPolyMoveListener = map.addListener('mousemove', (e) => {
+        updateDrawPreview(e.latLng);
+      });
+
+      drawPolyDblClickListener = map.addListener('dblclick', () => {
+        // dblclick fires one extra click before it — remove that spurious point
+        if (drawPolyPoints.length > 0) drawPolyPoints.pop();
+        closeDrawnPolygon();
+      });
+    } else {
+      cancelDrawPolygon();
+    }
+  }
+
+  function updateDrawPreview(movingLatLng) {
+    if (drawPolyLine) { drawPolyLine.setMap(null); drawPolyLine = null; }
+    const pts = [...drawPolyPoints];
+    if (movingLatLng) pts.push({ lat: movingLatLng.lat(), lng: movingLatLng.lng() });
+    // Close the preview loop back to first point if we have 2+ points
+    if (pts.length >= 3) pts.push(pts[0]);
+    if (pts.length < 2) return;
+    drawPolyLine = new google.maps.Polyline({
+      path: pts.map(p => new google.maps.LatLng(p.lat, p.lng)),
+      strokeColor: '#a78bfa',
+      strokeOpacity: 0.9,
+      strokeWeight: 2,
+      geodesic: true,
+      clickable: false,
+      map
+    });
+  }
+
+  function closeDrawnPolygon() {
+    // Remove drawing listeners and preview line
+    if (drawPolyClickListener)    { drawPolyClickListener.remove();    drawPolyClickListener    = null; }
+    if (drawPolyMoveListener)     { drawPolyMoveListener.remove();     drawPolyMoveListener     = null; }
+    if (drawPolyDblClickListener) { drawPolyDblClickListener.remove(); drawPolyDblClickListener = null; }
+    if (drawPolyLine) { drawPolyLine.setMap(null); drawPolyLine = null; }
+
+    drawingPolygon = false;
+    document.getElementById('draw-polygon-btn').classList.remove('active');
+    document.getElementById('draw-polygon-finish-btn').style.display = 'none';
+    map.setOptions({ draggableCursor: '', disableDoubleClickZoom: false });
+
+    if (drawPolyPoints.length < 3) {
+      setStatus('Polygon needs at least 3 points.', true);
+      return;
+    }
+
+    // Draw editable polygon — vertices can be dragged to reshape
+    drawPolyShape = new google.maps.Polygon({
+      paths: drawPolyPoints.map(p => new google.maps.LatLng(p.lat, p.lng)),
+      strokeColor: '#a78bfa',
+      strokeWeight: 2,
+      strokeOpacity: 0.9,
+      fillColor: '#7c3aed',
+      fillOpacity: 0.12,
+      editable: true,
+      draggable: false,
+      map,
+      zIndex: 5
+    });
+
+    // Re-fill panels whenever a vertex is moved or added/removed
+    // Skip during move-drag (drawPolyMoveState set) to avoid feedback loop
+    const refill = () => {
+      if (drawPolyMoveState) return;
+      const path = drawPolyShape.getPath();
+      drawPolyPoints = [];
+      for (let i = 0; i < path.getLength(); i++) {
+        const pt = path.getAt(i);
+        drawPolyPoints.push({ lat: pt.lat(), lng: pt.lng() });
+      }
+      refreshDrawPanels();
+    };
+    drawPolyShape.getPath().addListener('set_at', refill);
+    drawPolyShape.getPath().addListener('insert_at', refill);
+    drawPolyShape.getPath().addListener('remove_at', refill);
+
+    refreshDrawPanels();
+  }
+
+  // Find the segment whose roof polygon contains the drawn polygon's centroid.
+  function startArrayDrag(domEvent) {
+    if (!drawPolyShape) return;
+    domEvent.stopPropagation();
+    domEvent.preventDefault();
+
+    // Disable map dragging so the map doesn't pan while we move the array
+    map.setOptions({ draggable: false, draggableCursor: 'grabbing' });
+
+    const startPoints = drawPolyPoints.map(p => ({ lat: p.lat, lng: p.lng }));
+    const startX = domEvent.clientX;
+    const startY = domEvent.clientY;
+
+    const projection = map.getProjection();
+    const scale = Math.pow(2, map.getZoom());
+
+    const pixelToLatLngDelta = (dx, dy) => {
+      const anchor = startPoints[0];
+      const worldAnchor = projection.fromLatLngToPoint(new google.maps.LatLng(anchor.lat, anchor.lng));
+      const worldShifted = new google.maps.Point(
+        worldAnchor.x + dx / scale,
+        worldAnchor.y + dy / scale
+      );
+      const shifted = projection.fromPointToLatLng(worldShifted);
+      return { dLat: shifted.lat() - anchor.lat, dLng: shifted.lng() - anchor.lng };
+    };
+
+    drawPolyMoveState = { _rafPending: false };
+
+    const onMouseMove = (me) => {
+      const { dLat, dLng } = pixelToLatLngDelta(me.clientX - startX, me.clientY - startY);
+      drawPolyPoints = startPoints.map(p => ({ lat: p.lat + dLat, lng: p.lng + dLng }));
+      const path = drawPolyShape.getPath();
+      drawPolyPoints.forEach((p, i) => path.setAt(i, new google.maps.LatLng(p.lat, p.lng)));
+      if (!drawPolyMoveState._rafPending) {
+        drawPolyMoveState._rafPending = true;
+        requestAnimationFrame(() => { drawPolyMoveState._rafPending = false; refreshDrawPanels(); });
+      }
+    };
+
+    const onMouseUp = () => {
+      map.setOptions({ draggable: true, draggableCursor: '' });
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+      drawPolyMoveState = null;
+      refreshDrawPanels();
+    };
+
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+  }
+
+  // Drag handler for the roof panel array (API panels, not draw-zone panels).
+  // A short drag moves the array; a tap (no movement) shows the panel info popup.
+  let roofArrayDragState = null;
+
+  function startRoofArrayDrag(domEvent, poly, p, pNum, seg) {
+    domEvent.stopPropagation();
+    domEvent.preventDefault();
+
+    const startX = domEvent.clientX;
+    const startY = domEvent.clientY;
+    const startOffset = { dLat: panelArrayOffset.dLat, dLng: panelArrayOffset.dLng };
+    let dragged = false;
+
+    map.setOptions({ draggable: false, draggableCursor: 'grabbing' });
+
+    const projection = map.getProjection();
+    const scale = Math.pow(2, map.getZoom());
+
+    const pixelToLatLngDelta = (dx, dy) => {
+      const anchor = { lat: arrayCentroid.lat, lng: arrayCentroid.lng };
+      const worldAnchor = projection.fromLatLngToPoint(new google.maps.LatLng(anchor.lat, anchor.lng));
+      const worldShifted = new google.maps.Point(
+        worldAnchor.x + dx / scale,
+        worldAnchor.y + dy / scale
+      );
+      const shifted = projection.fromPointToLatLng(worldShifted);
+      return { dLat: shifted.lat() - anchor.lat, dLng: shifted.lng() - anchor.lng };
+    };
+
+    let rafPending = false;
+    roofArrayDragState = true;
+
+    const onMouseMove = (me) => {
+      const dx = me.clientX - startX;
+      const dy = me.clientY - startY;
+      if (!dragged && Math.hypot(dx, dy) < 4) return;
+      dragged = true;
+      const delta = pixelToLatLngDelta(dx, dy);
+      panelArrayOffset.dLat = startOffset.dLat + delta.dLat;
+      panelArrayOffset.dLng = startOffset.dLng + delta.dLng;
+      if (!rafPending) {
+        rafPending = true;
+        requestAnimationFrame(() => {
+          rafPending = false;
+          overlays.panels.forEach(p => p.setMap(null));
+          overlays.panels = [];
+          redrawPanels(true);
+        });
+      }
+    };
+
+    const onMouseUp = () => {
+      map.setOptions({ draggable: true, draggableCursor: '' });
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+      roofArrayDragState = null;
+      if (!dragged) {
+        // Treat as a click — show panel info
+        if (selectedPoly === poly) {
+          poly.setOptions({ fillOpacity: 0.88, strokeColor: '#000000', strokeWeight: 0.5, zIndex: 1 });
+          selectedPoly = null;
+          hideMapOverlay();
+          hideColorLegend();
+        } else {
+          if (selectedPoly) {
+            selectedPoly.setOptions({ fillOpacity: 0.88, strokeColor: '#000000', strokeWeight: 0.5, zIndex: 1 });
+          }
+          selectedPoly = poly;
+          poly.setOptions({ fillOpacity: 0.97, strokeColor: '#f6c90e', strokeWeight: 2.5, zIndex: 10 });
+          showPanelInfo(p, pNum, seg);
+          showColorLegend();
+        }
+      } else {
+        // Finished drag — do a final clean redraw
+        overlays.panels.forEach(p => p.setMap(null));
+        overlays.panels = [];
+        redrawPanels(true);
+      }
+    };
+
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+  }
+
+  // ── DRAW-ZONE ROTATE ICON ─────────────────────────────────────────────────
+
+  function updateDrawRotateIcon() {
+    if (drawPolyBounds.minLat === Infinity) { hideDrawRotateIcon(true); return; }
+    const icon = getOrCreateDrawRotateIcon();
+    const px = latLngToMapPixel(drawPolyBounds.minLat, drawPolyBounds.maxLng);
+    if (!px) return;
+    icon.style.left = px.x + 'px';
+    icon.style.top  = px.y + 'px';
+  }
+
+  function getOrCreateDrawRotateIcon() {
+    let icon = document.getElementById('draw-array-rotate-icon');
+    if (!icon) {
+      icon = document.createElement('div');
+      icon.id = 'draw-array-rotate-icon';
+      icon.title = 'Drag to rotate the panel array';
+      icon.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>`;
+      icon.style.opacity = '0';
+      document.getElementById('map').appendChild(icon);
+      icon.addEventListener('mouseenter', () => {
+        clearTimeout(drawRotateIconHideTimer);
+        icon.style.opacity = '1';
+      });
+      icon.addEventListener('mouseleave', () => {
+        drawRotateIconHideTimer = setTimeout(() => { icon.style.opacity = '0'; }, 400);
+      });
+      icon.addEventListener('mousedown', (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        startDrawRotateDrag(e);
+      });
+    }
+    return icon;
+  }
+
+  function showDrawRotateIcon() {
+    clearTimeout(drawRotateIconHideTimer);
+    const icon = document.getElementById('draw-array-rotate-icon');
+    if (icon) icon.style.opacity = '1';
+  }
+
+  function hideDrawRotateIcon(immediate = false) {
+    clearTimeout(drawRotateIconHideTimer);
+    const icon = document.getElementById('draw-array-rotate-icon');
+    if (!icon) return;
+    if (immediate) { icon.style.opacity = '0'; return; }
+    drawRotateIconHideTimer = setTimeout(() => { icon.style.opacity = '0'; }, 400);
+  }
+
+  function startDrawRotateDrag(domEvent) {
+    const icon = document.getElementById('draw-array-rotate-icon');
+    if (icon) icon.classList.add('dragging');
+    clearTimeout(drawRotateIconHideTimer);
+
+    const mapDiv = document.getElementById('map');
+    const rect   = mapDiv.getBoundingClientRect();
+
+    // Centroid of the drawn polygon (rotation pivot)
+    const centroid  = polycentroid(drawPolyPoints);
+    const centPx    = latLngToMapPixel(centroid.lat, centroid.lng);
+    const centScreenX = rect.left + centPx.x;
+    const centScreenY = rect.top  + centPx.y;
+
+    const startAngle    = Math.atan2(domEvent.clientY - centScreenY, domEvent.clientX - centScreenX);
+    const startRotation = drawPolyRotation;
+    let rafPending = false;
+
+    map.setOptions({ draggable: false, draggableCursor: 'grabbing' });
+
+    const onMouseMove = (me) => {
+      const angle    = Math.atan2(me.clientY - centScreenY, me.clientX - centScreenX);
+      const deltaDeg = (angle - startAngle) * (180 / Math.PI);
+      drawPolyRotation = startRotation + deltaDeg;
+      if (!rafPending) {
+        rafPending = true;
+        requestAnimationFrame(() => {
+          rafPending = false;
+          refreshDrawPanels();
+          updateDrawRotateIcon();
+        });
+      }
+    };
+
+    const onMouseUp = () => {
+      if (icon) icon.classList.remove('dragging');
+      map.setOptions({ draggable: true, draggableCursor: '' });
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+      refreshDrawPanels();
+      updateDrawRotateIcon();
+    };
+
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+  }
+
+  // ── ROTATE ICON ───────────────────────────────────────────────────────────
+  // Shown at the bottom-right corner of the panel array on hover.
+  // Converts arrayCentroid + arrayBounds to screen pixels via the map projection.
+
+  function latLngToMapPixel(lat, lng) {
+    const projection = map.getProjection();
+    if (!projection) return null;
+    const scale = Math.pow(2, map.getZoom());
+    const worldPoint = projection.fromLatLngToPoint(new google.maps.LatLng(lat, lng));
+    const bounds = map.getBounds();
+    const ne = bounds.getNorthEast();
+    const nw = new google.maps.LatLng(ne.lat(), bounds.getSouthWest().lng());
+    const origin = projection.fromLatLngToPoint(nw);
+    return {
+      x: (worldPoint.x - origin.x) * scale,
+      y: (worldPoint.y - origin.y) * scale,
+    };
+  }
+
+  function updateRotateIcon() {
+    if (arrayBounds.minLat === Infinity) { hideRotateIcon(); return; }
+    const icon = getOrCreateRotateIcon();
+    // Bottom-right of bounding box = minLat, maxLng
+    const px = latLngToMapPixel(arrayBounds.minLat, arrayBounds.maxLng);
+    if (!px) return;
+    icon.style.left = px.x + 'px';
+    icon.style.top  = px.y + 'px';
+  }
+
+  function getOrCreateRotateIcon() {
+    let icon = document.getElementById('array-rotate-icon');
+    if (!icon) {
+      icon = document.createElement('div');
+      icon.id = 'array-rotate-icon';
+      // Rotate SVG arrow
+      icon.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>`;
+      icon.style.opacity = '0';
+      document.getElementById('map').appendChild(icon);
+      icon.addEventListener('mouseenter', () => {
+        clearTimeout(rotateIconHideTimer);
+        icon.style.opacity = '1';
+      });
+      icon.addEventListener('mouseleave', () => {
+        rotateIconHideTimer = setTimeout(() => { icon.style.opacity = '0'; }, 400);
+      });
+      icon.addEventListener('mousedown', (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        startRotateDrag(e);
+      });
+    }
+    return icon;
+  }
+
+  function showRotateIcon() {
+    clearTimeout(rotateIconHideTimer);
+    const icon = document.getElementById('array-rotate-icon');
+    if (icon) icon.style.opacity = '1';
+  }
+
+  function hideRotateIcon(immediate = false) {
+    clearTimeout(rotateIconHideTimer);
+    const icon = document.getElementById('array-rotate-icon');
+    if (!icon) return;
+    if (immediate) { icon.style.opacity = '0'; return; }
+    rotateIconHideTimer = setTimeout(() => { icon.style.opacity = '0'; }, 400);
+  }
+
+  function startRotateDrag(domEvent) {
+    const icon = document.getElementById('array-rotate-icon');
+    if (icon) icon.classList.add('dragging');
+    clearTimeout(rotateIconHideTimer);
+
+    const mapDiv = document.getElementById('map');
+    const rect   = mapDiv.getBoundingClientRect();
+
+    // Screen position of the array centroid
+    const centPx = latLngToMapPixel(arrayCentroid.lat, arrayCentroid.lng);
+    const centScreenX = rect.left + centPx.x;
+    const centScreenY = rect.top  + centPx.y;
+
+    const startAngle    = Math.atan2(domEvent.clientY - centScreenY, domEvent.clientX - centScreenX);
+    const startRotation = panelArrayRotation;
+    let rafPending = false;
+
+    map.setOptions({ draggable: false, draggableCursor: 'grabbing' });
+
+    const onMouseMove = (me) => {
+      const angle = Math.atan2(me.clientY - centScreenY, me.clientX - centScreenX);
+      const deltaDeg = (angle - startAngle) * (180 / Math.PI);
+      panelArrayRotation = startRotation + deltaDeg;
+      if (!rafPending) {
+        rafPending = true;
+        requestAnimationFrame(() => {
+          rafPending = false;
+          overlays.panels.forEach(p => p.setMap(null));
+          overlays.panels = [];
+          redrawPanels(true);
+          updateRotateIcon();
+        });
+      }
+    };
+
+    const onMouseUp = () => {
+      if (icon) icon.classList.remove('dragging');
+      map.setOptions({ draggable: true, draggableCursor: '' });
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+      overlays.panels.forEach(p => p.setMap(null));
+      overlays.panels = [];
+      redrawPanels(true);
+      updateRotateIcon();
+    };
+
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+  }
+
+  // Called on first close and on every vertex edit.
+  function refreshDrawPanels() {
+    drawPolyPanels.forEach(p => p.setMap(null));
+    drawPolyPanels = [];
+
+    let azimuth = 180, pitch = 20, segIdx = null;
+
+    if (solarData && solarData.solarPotential) {
+      const centroid = polycentroid(drawPolyPoints);
+      const segments = solarData.solarPotential.roofSegmentStats || [];
+      const latM = 111320;
+      const lngM = 111320 * Math.cos(centroid.lat * Math.PI / 180);
+
+      // Always pick the segment whose center is nearest to the polygon centroid.
+      // bbox containment is unreliable when segment bboxes overlap.
+      let minDist = Infinity;
+      segments.forEach((seg, si) => {
+        const c = seg.center || {
+          latitude:  (seg.boundingBox.ne.latitude  + seg.boundingBox.sw.latitude)  / 2,
+          longitude: (seg.boundingBox.ne.longitude + seg.boundingBox.sw.longitude) / 2,
+        };
+        const d = Math.hypot(
+          (c.latitude  - centroid.lat) * latM,
+          (c.longitude - centroid.lng) * lngM
+        );
+        if (d < minDist) { minDist = d; azimuth = seg.azimuthDegrees; pitch = seg.pitchDegrees; segIdx = si; }
+      });
+    }
+
+    // Hide the regular API panels while draw zone is active to avoid overlap
+    overlays.panels.forEach(p => p.setMap(null));
+
+    // Compute average kWh/panel for the matched segment
+    let avgKwhPerPanel = 0;
+    if (solarData && segIdx !== null) {
+      const segPanels = (solarData.solarPotential.solarPanels || []).filter(p => p.segmentIndex === segIdx);
+      if (segPanels.length) avgKwhPerPanel = segPanels.reduce((s, p) => s + p.yearlyEnergyDcKwh, 0) / segPanels.length;
+    }
+
+    const count = fillPolygonWithPanels(drawPolyPoints, azimuth, pitch, drawPolyOrientation);
+    const totalKwh = count * avgKwhPerPanel;
+    showDrawPolygonSummary(azimuth, pitch, count, segIdx, totalKwh);
+    setStatus(`Draw Zone: ${count} panels`, false);
+  }
+
+  function cancelDrawPolygon() {
+    if (drawPolyClickListener)    { drawPolyClickListener.remove();    drawPolyClickListener    = null; }
+    if (drawPolyMoveListener)     { drawPolyMoveListener.remove();     drawPolyMoveListener     = null; }
+    if (drawPolyDblClickListener) { drawPolyDblClickListener.remove(); drawPolyDblClickListener = null; }
+    if (drawPolyLine) { drawPolyLine.setMap(null); drawPolyLine = null; }
+    drawingPolygon = false;
+    document.getElementById('draw-polygon-btn').classList.remove('active');
+    document.getElementById('draw-polygon-finish-btn').style.display = 'none';
+    map.setOptions({ draggableCursor: '', disableDoubleClickZoom: false });
+    setStatus('Draw Zone cancelled', false);
+  }
+
+  function clearDrawnPolygon() {
+    if (drawPolyShape) { drawPolyShape.setMap(null); drawPolyShape = null; }
+    drawPolyPanels.forEach(p => p.setMap(null));
+    drawPolyPanels = [];
+    drawPolyRotation = 0;
+    drawPolyBounds = { minLat: Infinity, maxLat: -Infinity, minLng: Infinity, maxLng: -Infinity };
+    const el = document.getElementById('draw-polygon-summary');
+    if (el) el.remove();
+    hideDrawRotateIcon(true);
+    // Restore regular API panels
+    updateOverlayVisibility();
+  }
+
+  // Fill a drawn polygon with the maximum number of portrait solar panels,
+  // using the same u/v convention as redrawPanels():
+  //   u = across azimuth (pW = 1.045m, short side)
+  //   v = along azimuth downslope (pH = 1.879m, tall side)
+  //   dLat = v·cos(az) - u·sin(az)
+  //   dLng = v·sin(az) + u·cos(az)
+  // Tries a grid of sub-step offsets to find the placement that fits most panels.
+  // Returns the number of panels placed.
+  function fillPolygonWithPanels(polygon, azimuthDeg, pitchDeg, orientation = 'PORTRAIT') {
+    const panelW = 1.045, panelH = 1.879;
+    // Portrait:  short side (pW) across azimuth, tall side (pH) downslope
+    // Landscape: long side (pH) across azimuth, short side (pW) downslope
+    const isPortrait = orientation !== 'LANDSCAPE';
+    const pW  = isPortrait ? panelW : panelH; // across azimuth (u)
+    const pH  = isPortrait ? panelH : panelW; // downslope (v)
+    const gap = 0;
+    const halfU = pW / 2;
+    const halfV = pH / 2;
+    const stepU = pW + gap;
+    const stepV = pH + gap;
+
+    const anchor  = polycentroid(polygon);
+    const mPerLat = 111320;
+    const mPerLng = 111320 * Math.cos(anchor.lat * Math.PI / 180);
+    const azRad   = azimuthDeg * Math.PI / 180;
+    const azCos   = Math.cos(azRad);
+    const azSin   = Math.sin(azRad);
+
+    const uvToLatLng = (u, v) => ({
+      lat: anchor.lat + (v * azCos - u * azSin) / mPerLat,
+      lng: anchor.lng + (v * azSin + u * azCos) / mPerLng,
+    });
+
+    // Project polygon into u/v space (u=across, v=downslope)
+    const roofVerts = polygon.map(p => latLngToRoofCoords(p, anchor, azimuthDeg));
+    const us = roofVerts.map(r => r.y);
+    const vs = roofVerts.map(r => r.x);
+    const minU = Math.min(...us), maxU = Math.max(...us);
+    const minV = Math.min(...vs), maxV = Math.max(...vs);
+
+    // Count how many panels fit for a given grid origin offset (ou, ov)
+    const countForOffset = (ou, ov) => {
+      let n = 0;
+      for (let cv = minV + halfV + ov; cv < maxV; cv += stepV) {
+        for (let cu = minU + halfU + ou; cu < maxU; cu += stepU) {
+          const corners = [
+            uvToLatLng(cu - halfU, cv - halfV),
+            uvToLatLng(cu + halfU, cv - halfV),
+            uvToLatLng(cu + halfU, cv + halfV),
+            uvToLatLng(cu - halfU, cv + halfV),
+          ];
+          if (corners.every(c => pointInPolygon(c, polygon))) n++;
+        }
+      }
+      return n;
+    };
+
+    // Sample a grid of offsets across one full step to find the best origin.
+    // 6×6 = 36 trials — fast enough, thorough enough.
+    const samples = 6;
+    let bestOU = 0, bestOV = 0, bestCount = -1;
+    for (let si = 0; si < samples; si++) {
+      for (let sj = 0; sj < samples; sj++) {
+        const ou = (si / samples) * stepU;
+        const ov = (sj / samples) * stepV;
+        const n = countForOffset(ou, ov);
+        if (n > bestCount) { bestCount = n; bestOU = ou; bestOV = ov; }
+      }
+    }
+
+    // Compute draw-zone centroid (polygon centroid) for rotation
+    const dzCentroid = anchor; // anchor is already polycentroid(polygon)
+    const mPerLatDZ  = 111320;
+    const mPerLngDZ  = 111320 * Math.cos(dzCentroid.lat * Math.PI / 180);
+    const rotRad = drawPolyRotation * Math.PI / 180;
+    const rotCos = Math.cos(rotRad);
+    const rotSin = Math.sin(rotRad);
+
+    const rotateCorner = (c) => {
+      if (drawPolyRotation === 0) return c;
+      const my = (c.lat - dzCentroid.lat) * mPerLatDZ;
+      const mx = (c.lng - dzCentroid.lng) * mPerLngDZ;
+      return {
+        lat: dzCentroid.lat + (my * rotCos - mx * rotSin) / mPerLatDZ,
+        lng: dzCentroid.lng + (mx * rotCos + my * rotSin) / mPerLngDZ,
+      };
+    };
+
+    // Reset bounding box
+    drawPolyBounds = { minLat: Infinity, maxLat: -Infinity, minLng: Infinity, maxLng: -Infinity };
+
+    // Render panels at the best offset
+    let count = 0;
+    for (let cv = minV + halfV + bestOV; cv < maxV; cv += stepV) {
+      for (let cu = minU + halfU + bestOU; cu < maxU; cu += stepU) {
+        const rawCorners = [
+          uvToLatLng(cu - halfU, cv - halfV),
+          uvToLatLng(cu + halfU, cv - halfV),
+          uvToLatLng(cu + halfU, cv + halfV),
+          uvToLatLng(cu - halfU, cv + halfV),
+        ];
+        if (!rawCorners.every(c => pointInPolygon(c, polygon))) continue;
+
+        const latLngCorners = rawCorners.map(rotateCorner);
+
+        // Track bounds
+        latLngCorners.forEach(c => {
+          if (c.lat < drawPolyBounds.minLat) drawPolyBounds.minLat = c.lat;
+          if (c.lat > drawPolyBounds.maxLat) drawPolyBounds.maxLat = c.lat;
+          if (c.lng < drawPolyBounds.minLng) drawPolyBounds.minLng = c.lng;
+          if (c.lng > drawPolyBounds.maxLng) drawPolyBounds.maxLng = c.lng;
+        });
+
+        const panel = new google.maps.Polygon({
+          paths: latLngCorners.map(c => new google.maps.LatLng(c.lat, c.lng)),
+          strokeColor: '#000',
+          strokeWeight: 0.5,
+          strokeOpacity: 1,
+          fillColor: '#f6c90e',
+          fillOpacity: 0.85,
+          clickable: true,
+          map,
+          zIndex: 6
+        });
+        panel.addListener('mouseover', () => { map.setOptions({ draggableCursor: 'grab' }); showDrawRotateIcon(); });
+        panel.addListener('mouseout',  () => { map.setOptions({ draggableCursor: '' });     hideDrawRotateIcon(); });
+        panel.addListener('mousedown', (e) => startArrayDrag(e.domEvent));
+        drawPolyPanels.push(panel);
+        count++;
+      }
+    }
+
+    updateDrawRotateIcon();
+    return count;
+  }
+
+  function polycentroid(points) {
+    const lat = points.reduce((s, p) => s + p.lat, 0) / points.length;
+    const lng = points.reduce((s, p) => s + p.lng, 0) / points.length;
+    return { lat, lng };
+  }
+
+  function showDrawPolygonSummary(azimuth, pitch, panelCount, segIdx, totalKwh) {
+    // Anchor inside the map div so it stays within the satellite image
+    const mapEl = document.getElementById('map');
+    let el = document.getElementById('draw-polygon-summary');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'draw-polygon-summary';
+      mapEl.appendChild(el);
+    }
+
+
+    const dir = dirLabel(azimuth);
+    const segLabel = segIdx !== null ? ` · Seg ${segIdx + 1}` : '';
+    const isPortrait = drawPolyOrientation !== 'LANDSCAPE';
+    const orientLabel = isPortrait ? 'Portrait' : 'Landscape';
+    const toggleLabel = isPortrait ? '⇄ Landscape' : '⇄ Portrait';
+    const pW = 1.045, pH = 1.879;
+    const acrossM = isPortrait ? pW : pH;
+    const downM   = isPortrait ? pH : pW;
+
+    const arrowGlyphs = { N:'↑', NE:'↗', E:'→', SE:'↘', S:'↓', SW:'↙', W:'←', NW:'↖' };
+    const dirs8 = ['N','NE','E','SE','S','SW','W','NW'];
+    const arrowGlyph = arrowGlyphs[dirs8[Math.round(azimuth / 45) % 8]];
+
+    const kwhStr = totalKwh > 0 ? `${(totalKwh / 1000).toFixed(2)} MWh/yr` : '—';
+
+    el.innerHTML = `
+      <div class="draw-polygon-summary-title">
+        <span>Draw Zone${segLabel}</span>
+      </div>
+      <div class="segment-summary-item">
+        <span class="segment-summary-label">Direction:</span>
+        <span class="segment-summary-value" style="color:#a78bfa !important">${dir} ${arrowGlyph}</span>
+      </div>
+      <div class="segment-summary-item">
+        <span class="segment-summary-label">Azimuth:</span>
+        <span class="segment-summary-value" style="color:#a78bfa !important">${azimuth.toFixed(1)}°</span>
+      </div>
+      <div class="segment-summary-item">
+        <span class="segment-summary-label">Pitch:</span>
+        <span class="segment-summary-value" style="color:#a78bfa !important">${pitch.toFixed(1)}°</span>
+      </div>
+      <div class="segment-summary-item">
+        <span class="segment-summary-label">Panels:</span>
+        <span class="segment-summary-value" style="color:#f6c90e !important">${panelCount}</span>
+      </div>
+      <div class="segment-summary-item">
+        <span class="segment-summary-label">Est. output:</span>
+        <span class="segment-summary-value" style="color:#34d399 !important">${kwhStr}</span>
+      </div>
+      <div style="margin-top:8px;padding-top:8px;border-top:1px solid #334155;">
+        <div style="font-size:11px;color:#94a3b8;margin-bottom:6px;">
+          <strong style="color:#e2e8f0">${orientLabel}</strong> —
+          ${arrowGlyph} ${downM}m downslope · ↔ ${acrossM}m across
+        </div>
+        <button id="draw-zone-orient-btn" style="
+          width:100%;padding:6px 0;border-radius:6px;border:1px solid #a78bfa;
+          background:rgba(167,139,250,0.15);color:#a78bfa;font-size:12px;
+          font-weight:700;cursor:pointer;letter-spacing:0.03em;">
+          ${toggleLabel}
+        </button>
+      </div>
+    `;
+
+    el.querySelector('#draw-zone-orient-btn').addEventListener('click', (e) => {
+      e.stopPropagation();
+      drawPolyOrientation = isPortrait ? 'LANDSCAPE' : 'PORTRAIT';
+      refreshDrawPanels();
+    });
+
+  }
+
   // ── RULER MEASUREMENT ─────────────────────────────────────────────────────
   let rulerMode = false;
   let rulerPoints = [];
@@ -1266,6 +2100,8 @@
   let panelArrayRotation = 0; // Rotation in degrees for entire array
   let arrayControlsVisible = false; // Track if controls are visible
   let arrayCentroid = { lat: 0, lng: 0 }; // Center point of entire panel array for rotation
+  let arrayBounds = { minLat: 0, maxLat: 0, minLng: 0, maxLng: 0 }; // Bounding box of rendered panels
+  let rotateIconHideTimer = null; // Debounce timer for hiding rotate icon
 
   // ── RENDER ALL ────────────────────────────────────────────────────────────
   function renderAll(data) {
@@ -1274,6 +2110,8 @@
 
     document.getElementById('empty-state').style.display = 'none';
     document.getElementById('data-content').style.display = 'block';
+    document.getElementById('draw-polygon-btn').disabled = false;
+    document.getElementById('draw-polygon-btn').title = 'Draw a custom polygon and fill with solar panels';
 
     const allPanels  = sp.solarPanels || [];
     const segments   = sp.roofSegmentStats || [];
@@ -1721,6 +2559,8 @@
       clearPanelOverlays();
     }
     if (!solarData) return;
+    // Reset bounding box for rotate icon
+    arrayBounds = { minLat: Infinity, maxLat: -Infinity, minLng: Infinity, maxLng: -Infinity };
     const sp       = solarData.solarPotential;
     const allPanels = sp.solarPanels || [];
     const segments  = sp.roofSegmentStats || [];
@@ -1834,15 +2674,25 @@
       // Apply user-defined array transformations (rotation and offset)
       if (panelArrayRotation !== 0 || panelArrayOffset.dLat !== 0 || panelArrayOffset.dLng !== 0) {
         if (panelArrayRotation !== 0) {
+          // Rotate in metre-space around the array centroid to avoid lat/lng distortion.
           const rad = panelArrayRotation * Math.PI / 180;
-          const cos = Math.cos(rad);
-          const sin = Math.sin(rad);
+          const rCos = Math.cos(rad);
+          const rSin = Math.sin(rad);
+          const cLat = arrayCentroid.lat;
+          const cLng = arrayCentroid.lng;
+          const mPerLatC = 111320;
+          const mPerLngC = 111320 * Math.cos(cLat * Math.PI / 180);
           corners = corners.map(pt => {
-            const dy = pt.lat - arrayCentroid.lat;
-            const dx = pt.lng - arrayCentroid.lng;
+            // Convert offset to metres
+            const my = (pt.lat - cLat) * mPerLatC;
+            const mx = (pt.lng - cLng) * mPerLngC;
+            // Rotate
+            const ry = my * rCos - mx * rSin;
+            const rx = mx * rCos + my * rSin;
+            // Back to lat/lng
             return {
-              lat: arrayCentroid.lat + (dy * cos - dx * sin),
-              lng: arrayCentroid.lng + (dx * cos + dy * sin)
+              lat: cLat + ry / mPerLatC,
+              lng: cLng + rx / mPerLngC,
             };
           });
         }
@@ -1860,6 +2710,14 @@
         return;
       }
 
+      // Track bounding box for rotate icon placement
+      corners.forEach(c => {
+        if (c.lat < arrayBounds.minLat) arrayBounds.minLat = c.lat;
+        if (c.lat > arrayBounds.maxLat) arrayBounds.maxLat = c.lat;
+        if (c.lng < arrayBounds.minLng) arrayBounds.minLng = c.lng;
+        if (c.lng > arrayBounds.maxLng) arrayBounds.maxLng = c.lng;
+      });
+
       const gradColor = panelGradientColor(p.yearlyEnergyDcKwh);
 
       const poly = new google.maps.Polygon({
@@ -1874,27 +2732,17 @@
       });
       poly._gradColor = gradColor;
 
-      poly.addListener('click', () => {
-        if (selectedPoly === poly) {
-          poly.setOptions({ fillOpacity: 0.88, strokeColor: '#000000', strokeWeight: 0.5, zIndex: 1 });
-          selectedPoly = null;
-          hideMapOverlay();
-          hideColorLegend();
-          return;
-        }
-        if (selectedPoly) {
-          selectedPoly.setOptions({ fillOpacity: 0.88, strokeColor: '#000000', strokeWeight: 0.5, zIndex: 1 });
-        }
-        selectedPoly = poly;
-        poly.setOptions({ fillOpacity: 0.97, strokeColor: '#f6c90e', strokeWeight: 2.5, zIndex: 10 });
-        showPanelInfo(p, pNum, seg);
-        showColorLegend();
+      poly.addListener('mouseover', () => { map.setOptions({ draggableCursor: 'grab' }); showRotateIcon(); });
+      poly.addListener('mouseout',  () => { map.setOptions({ draggableCursor: '' });     hideRotateIcon(); });
+      poly.addListener('mousedown', (e) => {
+        startRoofArrayDrag(e.domEvent, poly, p, pNum, seg);
       });
 
       overlays.panels.push(poly);
     });
 
     updateOverlayVisibility();
+    updateRotateIcon();
   }
 
   function showPanelInfo(p, num, seg) {
@@ -1948,57 +2796,8 @@
       pointer-events:auto !important;
     `;
 
-    // Create info section
-    const infoEl = document.createElement('div');
-    infoEl.style.cssText = 'display:flex;flex-direction:column;gap:6px;align-items:center;';
-    infoEl.innerHTML = html;
-
-    // Create controls section with arrow buttons for manual positioning and rotation buttons
-    const controlsEl = document.createElement('div');
-    controlsEl.style.cssText = 'display:flex;flex-direction:column;gap:8px;align-items:center;';
-    controlsEl.innerHTML = `
-      <div style="display:flex;flex-direction:column;gap:4px;align-items:center;">
-        <span style="font-size:10px;color:#64748b;font-weight:500">MOVE</span>
-        <button class="array-arrow-btn" data-direction="up" style="width: 36px !important; height: 36px !important; background: rgba(246,201,14,0.2) !important; border: 1.5px solid #f6c90e !important; border-radius: 4px !important; color: #f6c90e !important; font-size: 18px !important; cursor: pointer !important; display: flex !important; align-items: center !important; justify-content: center !important; transition: all 0.15s !important; padding: 0 !important;" title="Move up">↑</button>
-        <div style="display:flex;gap:4px;">
-          <button class="array-arrow-btn" data-direction="left" style="width: 36px !important; height: 36px !important; background: rgba(246,201,14,0.2) !important; border: 1.5px solid #f6c90e !important; border-radius: 4px !important; color: #f6c90e !important; font-size: 18px !important; cursor: pointer !important; display: flex !important; align-items: center !important; justify-content: center !important; transition: all 0.15s !important; padding: 0 !important;" title="Move left">←</button>
-          <button class="array-arrow-btn" data-direction="down" style="width: 36px !important; height: 36px !important; background: rgba(246,201,14,0.2) !important; border: 1.5px solid #f6c90e !important; border-radius: 4px !important; color: #f6c90e !important; font-size: 18px !important; cursor: pointer !important; display: flex !important; align-items: center !important; justify-content: center !important; transition: all 0.15s !important; padding: 0 !important;" title="Move down">↓</button>
-          <button class="array-arrow-btn" data-direction="right" style="width: 36px !important; height: 36px !important; background: rgba(246,201,14,0.2) !important; border: 1.5px solid #f6c90e !important; border-radius: 4px !important; color: #f6c90e !important; font-size: 18px !important; cursor: pointer !important; display: flex !important; align-items: center !important; justify-content: center !important; transition: all 0.15s !important; padding: 0 !important;" title="Move right">→</button>
-        </div>
-      </div>
-    `;
-
-    el.appendChild(infoEl);
-    el.appendChild(controlsEl);
+    el.innerHTML = html;
     document.body.appendChild(el);
-
-    // Attach event listeners to the arrow buttons for movement
-    controlsEl.querySelectorAll('.array-arrow-btn').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        const direction = btn.dataset.direction;
-        const pixelDistance = 0.000005; // approximately 0.5 pixel movement in degrees
-
-        switch(direction) {
-          case 'up':
-            panelArrayOffset.dLat += pixelDistance;
-            break;
-          case 'down':
-            panelArrayOffset.dLat -= pixelDistance;
-            break;
-          case 'left':
-            panelArrayOffset.dLng -= pixelDistance;
-            break;
-          case 'right':
-            panelArrayOffset.dLng += pixelDistance;
-            break;
-        }
-
-        // Redraw panels with new position
-        overlays.panels.forEach(p => p.setMap(null));
-        overlays.panels = [];
-        redrawPanels(true);
-      });
-    });
 
     // Close when clicking outside the card
     const closeHandler = () => {
@@ -2138,7 +2937,40 @@
     const area = seg.stats.areaMeters2.toFixed(1);
     const maxSun = Math.max(...seg.stats.sunshineQuantiles).toFixed(0);
     const panelCount = (segPanelCounts[segmentIndex] || 0);
-    const maxPanels = (solarData.solarPotential.solarPanels || []).filter(p => p.segmentIndex === segmentIndex).length;
+    const segPanels = (solarData.solarPotential.solarPanels || []).filter(p => p.segmentIndex === segmentIndex);
+    const maxPanels = segPanels.length;
+
+    // Determine dominant orientation for this segment's panels
+    const portraitCount  = segPanels.filter(p => p.orientation === 'PORTRAIT').length;
+    const landscapeCount = segPanels.filter(p => p.orientation === 'LANDSCAPE').length;
+    const dominantOrientation = portraitCount >= landscapeCount ? 'PORTRAIT' : 'LANDSCAPE';
+
+    // Build a compass arrow showing the azimuth direction (downslope / panel facing direction)
+    const az = seg.azimuthDegrees;
+    const arrowDirs = [
+      { label: 'N',  deg: 0   }, { label: 'NE', deg: 45  },
+      { label: 'E',  deg: 90  }, { label: 'SE', deg: 135 },
+      { label: 'S',  deg: 180 }, { label: 'SW', deg: 225 },
+      { label: 'W',  deg: 270 }, { label: 'NW', deg: 315 },
+    ];
+    // Unicode arrows for 8 compass directions
+    const arrowGlyphs = { N:'↑', NE:'↗', E:'→', SE:'↘', S:'↓', SW:'↙', W:'←', NW:'↖' };
+    const closestDir = arrowDirs.reduce((best, d) => {
+      const diff = Math.abs(((az - d.deg) + 360) % 360);
+      const wrap = Math.min(diff, 360 - diff);
+      return wrap < best.diff ? { label: d.label, diff: wrap } : best;
+    }, { label: 'S', diff: 999 }).label;
+    const arrowGlyph = arrowGlyphs[closestDir];
+
+    // Panel visual note
+    // Portrait:  tall side (1.879m) runs downslope (along azimuth), short side (1.045m) across
+    // Landscape: long side (1.879m) runs across azimuth, short side (1.045m) downslope
+    const isPortrait = dominantOrientation === 'PORTRAIT';
+    const acrossSize  = isPortrait ? '1.045m' : '1.879m';
+    const downslopeSize = isPortrait ? '1.879m' : '1.045m';
+    const orientNote = isPortrait
+      ? 'Tall side downslope, short side across'
+      : 'Long side across roof, short side downslope';
 
     let el = document.getElementById('segment-summary-panel');
     if (!el) {
@@ -2151,7 +2983,7 @@
       <div class="segment-summary-title">Roof Segment ${segmentIndex + 1}</div>
       <div class="segment-summary-item">
         <span class="segment-summary-label">Direction:</span>
-        <span class="segment-summary-value">${dir}</span>
+        <span class="segment-summary-value">${dir} ${arrowGlyph}</span>
       </div>
       <div class="segment-summary-item">
         <span class="segment-summary-label">Azimuth:</span>
@@ -2172,6 +3004,20 @@
       <div class="segment-summary-item">
         <span class="segment-summary-label">Panels:</span>
         <span class="segment-summary-value">${panelCount}/${maxPanels}</span>
+      </div>
+      <div style="margin-top:8px !important; padding-top:8px !important; border-top:1px solid #334155 !important;">
+        <div style="font-size:11px !important; font-weight:700 !important; color:#a78bfa !important; text-transform:uppercase !important; letter-spacing:0.05em !important; margin-bottom:6px !important;">Panel Orientation</div>
+        <div style="font-size:11px !important; color:#94a3b8 !important; margin-bottom:4px !important;">${dominantOrientation} — ${orientNote}</div>
+        <div style="font-size:11px !important; color:#94a3b8 !important; margin-bottom:4px !important;">
+          ${arrowGlyph} Downslope (${dir}): <span style="color:#34d399 !important">${downslopeSize}</span>
+        </div>
+        <div style="font-size:11px !important; color:#94a3b8 !important; margin-bottom:6px !important;">
+          ↔ Across roof: <span style="color:#34d399 !important">${acrossSize}</span>
+        </div>
+        <div style="font-size:10px !important; color:#64748b !important; line-height:1.4 !important;">
+          Panels face ${dir} (${azimuth}°) at ${pitch}° slope.<br>
+          The ${arrowGlyph} arrow on the map shows the downslope / facing direction.
+        </div>
       </div>
     `;
 
@@ -2576,6 +3422,7 @@
       hideMapOverlay();
     }
     hideColorLegend();
+    hideRotateIcon(true);
   }
   function clearLabelOverlays() {
     overlays.labels = [];
