@@ -1587,9 +1587,13 @@
       document.removeEventListener('mousemove', onMouseMove);
       document.removeEventListener('mouseup', onMouseUp);
 
-      // Commit rotation: apply rotation to drawPolyPoints permanently
+      // Commit rotation: apply rotation to drawPolyPoints and azimuth permanently
       const rotatedPoints = getRotatedPolyPoints();
       drawPolyPoints = rotatedPoints;
+      // Update azimuth based on the rotation applied
+      if (drawPolyAzimuth !== null) {
+        drawPolyAzimuth = (drawPolyAzimuth + drawPolyRotation) % 360;
+      }
       drawPolyRotation = 0;
       drawPolyRotating = false;
 
