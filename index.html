@@ -1684,8 +1684,11 @@
     const mapDiv = document.getElementById('map');
     const rect   = mapDiv.getBoundingClientRect();
 
-    // Screen position of the array centroid
-    const centPx = latLngToMapPixel(arrayCentroid.lat, arrayCentroid.lng);
+    // Use polygon centroid if draw zone exists, otherwise use array centroid
+    const rotationCenter = drawPolyPoints.length > 0 ? polycentroid(drawPolyPoints) : arrayCentroid;
+
+    // Screen position of the rotation center
+    const centPx = latLngToMapPixel(rotationCenter.lat, rotationCenter.lng);
     const centScreenX = rect.left + centPx.x;
     const centScreenY = rect.top  + centPx.y;
 
@@ -1780,7 +1783,9 @@
 
     const count = fillPolygonWithPanels(drawPolyPoints, azimuth, pitch, drawPolyOrientation);
     const totalKwh = count * avgKwhPerPanel;
-    showDrawPolygonSummary(azimuth, pitch, count, segIdx, totalKwh);
+    // Apply rotation to azimuth for display
+    const displayAzimuth = (azimuth + drawPolyRotation) % 360;
+    showDrawPolygonSummary(displayAzimuth, pitch, count, segIdx, totalKwh);
     setStatus(`Draw Zone: ${count} panels`, false);
 
     // Update polygon shape to show rotated outline during rotation drag
@@ -2966,12 +2971,14 @@
       // Apply user-defined array transformations (rotation and offset)
       if (panelArrayRotation !== 0 || panelArrayOffset.dLat !== 0 || panelArrayOffset.dLng !== 0) {
         if (panelArrayRotation !== 0) {
-          // Rotate in metre-space around the array centroid to avoid lat/lng distortion.
+          // Rotate in metre-space around the rotation center to avoid lat/lng distortion.
+          // Use polygon centroid if draw zone exists, otherwise use array centroid.
+          const rotationCenter = drawPolyPoints.length > 0 ? polycentroid(drawPolyPoints) : arrayCentroid;
           const rad = panelArrayRotation * Math.PI / 180;
           const rCos = Math.cos(rad);
           const rSin = Math.sin(rad);
-          const cLat = arrayCentroid.lat;
-          const cLng = arrayCentroid.lng;
+          const cLat = rotationCenter.lat;
+          const cLng = rotationCenter.lng;
           const mPerLatC = 111320;
           const mPerLngC = 111320 * Math.cos(cLat * Math.PI / 180);
           corners = corners.map(pt => {
