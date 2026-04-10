@@ -1,0 +1,3740 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Solar Potential Explorer</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { height: 100%; }
+
+    #map-overlay-bar {
+      position: fixed !important;
+      bottom: 20px !important;
+      left: 50% !important;
+      transform: translateX(-50%) !important;
+      z-index: 10000 !important;
+      display: flex !important;
+      visibility: visible !important;
+      opacity: 1 !important;
+      pointer-events: auto !important;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #0f1117;
+      color: #e2e8f0;
+      height: 100%;
+      /* Use dvh (dynamic viewport) so mobile browser chrome is excluded */
+      height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ── TOP BAR ── */
+    #topbar {
+      background: #1a1d27;
+      border-bottom: 1px solid #2d3148;
+      padding: 10px 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: nowrap;
+      z-index: 10;
+      overflow-x: auto;
+      overflow-y: hidden;
+      position: relative;
+    }
+    #topbar h1 {
+      font-size: 15px;
+      font-weight: 700;
+      color: #f6c90e;
+      white-space: nowrap;
+    }
+    #address-input {
+      flex: 1;
+      min-width: 160px;
+      padding: 8px 12px;
+      border-radius: 8px;
+      border: 1px solid #3a3f5c;
+      background: #252840;
+      color: #e2e8f0;
+      font-size: 14px;
+      outline: none;
+    }
+    #address-input:focus { border-color: #f6c90e; }
+    #search-btn {
+      padding: 8px 16px;
+      border-radius: 8px;
+      border: none;
+      background: #f6c90e;
+      color: #0f1117;
+      font-weight: 700;
+      font-size: 14px;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    #search-btn:hover { background: #ffe040; }
+    #search-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    #gps-btn {
+      padding: 8px 16px;
+      border-radius: 8px;
+      border: none;
+      background: #4f46e5;
+      color: #fff;
+      font-weight: 700;
+      font-size: 14px;
+      cursor: pointer;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    #gps-btn:hover { background: #6366f1; }
+    #gps-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    #select-roof-btn {
+      padding: 8px 16px;
+      border-radius: 8px;
+      border: none;
+      background: #ec4899;
+      color: #fff;
+      font-weight: 700;
+      font-size: 14px;
+      cursor: pointer;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    #select-roof-btn:hover { background: #f43f5e; }
+    #select-roof-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    #select-roof-btn.active { background: #be185d; }
+
+    #draw-polygon-btn {
+      padding: 8px 16px;
+      border-radius: 8px;
+      border: none;
+      background: #7c3aed;
+      color: #fff;
+      font-weight: 700;
+      font-size: 14px;
+      cursor: pointer;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    #draw-polygon-btn:hover:not(:disabled) { background: #6d28d9; }
+    #draw-polygon-btn.active { background: #5b21b6; outline: 2px solid #a78bfa; }
+    #draw-polygon-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    #draw-polygon-finish-btn {
+      padding: 8px 16px;
+      border-radius: 8px;
+      border: none;
+      background: #16a34a;
+      color: #fff;
+      font-weight: 700;
+      font-size: 14px;
+      cursor: pointer;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    #draw-polygon-finish-btn:hover { background: #15803d; }
+
+    #draw-polygon-summary {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      z-index: 500;
+      background: rgba(26,29,39,0.95);
+      border: 2px solid #a78bfa;
+      border-radius: 12px;
+      padding: 14px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      font-family: sans-serif;
+      color: #e2e8f0;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.9);
+      width: 210px;
+      pointer-events: auto;
+    }
+    .draw-polygon-summary-title {
+      font-size: 12px !important;
+      font-weight: 700 !important;
+      color: #a78bfa !important;
+      text-transform: uppercase !important;
+      letter-spacing: 0.05em !important;
+      display: flex !important;
+      justify-content: space-between !important;
+      align-items: center !important;
+    }
+    #array-rotate-icon {
+      position: absolute;
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      background: rgba(26,29,39,0.92);
+      border: 2px solid #a78bfa;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: grab;
+      color: #a78bfa;
+      font-size: 16px;
+      user-select: none;
+      transition: opacity 0.15s, border-color 0.15s, color 0.15s;
+      z-index: 600;
+      pointer-events: auto;
+      transform: translate(50%, 50%);
+    }
+    #array-rotate-icon:hover { border-color: #c4b5fd; color: #c4b5fd; }
+    #array-rotate-icon.dragging { cursor: grabbing; border-color: #f6c90e; color: #f6c90e; }
+
+    #draw-array-rotate-icon {
+      position: absolute;
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      background: rgba(26,29,39,0.92);
+      border: 2px solid #f6c90e;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: grab;
+      color: #f6c90e;
+      font-size: 16px;
+      user-select: none;
+      transition: opacity 0.15s, border-color 0.15s, color 0.15s;
+      z-index: 600;
+      pointer-events: auto;
+      transform: translate(50%, 50%);
+    }
+    #draw-array-rotate-icon:hover { border-color: #ffe040; color: #ffe040; }
+    #draw-array-rotate-icon.dragging { cursor: grabbing; border-color: #fff; color: #fff; }
+
+    /* Map provider selector */
+    /* suppress any remaining Google Maps layer / rotate controls */
+    .gm-style-cc, .gm-bundled-control { display: none !important; }
+
+    #status-msg { font-size: 12px; color: #94a3b8; min-width: 80px; }
+    #status-msg.error { color: #f87171; }
+
+    /* Hamburger for mobile */
+    #sidebar-toggle {
+      display: none;
+      background: none;
+      border: 1px solid #3a3f5c;
+      border-radius: 6px;
+      color: #e2e8f0;
+      padding: 6px 10px;
+      font-size: 18px;
+      cursor: pointer;
+      line-height: 1;
+    }
+
+    /* ── MAIN LAYOUT ── */
+    #main { display: flex; flex: 1; min-height: 0; overflow: hidden; position: relative; }
+
+    /* ── MAP ── */
+    #map { flex: 1; min-width: 0; position: relative; }
+
+    /* ── BING MAP CONTAINER ── */
+    #bing-map {
+      position: absolute;
+      inset: 0;
+      display: none;
+      z-index: 5;
+      background: #0f1117;
+    }
+
+    /* ── SIDEBAR ── */
+    #sidebar {
+      width: 320px;
+      background: #1a1d27;
+      border-left: 1px solid #2d3148;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      transition: transform 0.3s ease;
+    }
+    .sidebar-section {
+      border-bottom: 1px solid #2d3148;
+      padding: 12px 14px;
+    }
+    .sidebar-section h3 {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #64748b;
+      margin-bottom: 10px;
+    }
+
+    /* ── TOGGLES ── */
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 5px 0;
+      cursor: pointer;
+    }
+    .toggle-row label { font-size: 13px; color: #cbd5e1; cursor: pointer; }
+    .toggle-switch { position: relative; width: 36px; height: 20px; flex-shrink: 0; }
+    .toggle-switch input { opacity: 0; width: 0; height: 0; }
+    .toggle-track {
+      position: absolute; inset: 0;
+      background: #374151; border-radius: 20px; transition: background 0.2s;
+    }
+    .toggle-switch input:checked + .toggle-track { background: #f6c90e; }
+    .toggle-knob {
+      position: absolute; top: 3px; left: 3px;
+      width: 14px; height: 14px;
+      background: #fff; border-radius: 50%; transition: transform 0.2s;
+    }
+    .toggle-switch input:checked ~ .toggle-knob { transform: translateX(16px); }
+
+    /* ── SEGMENT STEPPER ── */
+    .seg-stepper {
+      background: #252840;
+      border-radius: 8px;
+      padding: 10px 12px;
+      margin-bottom: 8px;
+    }
+    .seg-stepper-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    .seg-stepper-title { font-size: 13px; font-weight: 700; color: #f6c90e; }
+    .seg-stepper-dir { font-size: 11px; color: #64748b; }
+    .seg-stepper-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      color: #94a3b8;
+      margin-top: 3px;
+    }
+    .seg-stepper-row .highlight { color: #34d399; font-weight: 600; }
+    .stepper-control {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      margin-top: 10px;
+      border: 1px solid #3a3f5c;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .stepper-btn {
+      background: #1a1d27;
+      border: none;
+      color: #e2e8f0;
+      font-size: 12px;
+      font-weight: 600;
+      min-width: 36px;
+      height: 36px;
+      padding: 0 6px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: background 0.15s;
+    }
+    .stepper-btn:hover { background: #2d3148; color: #f6c90e; }
+    .stepper-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+    .stepper-btn[data-action="min"], .stepper-btn[data-action="max"] {
+      font-size: 11px;
+      min-width: 44px;
+      background: #0f766e;
+    }
+    .stepper-btn[data-action="min"]:hover, .stepper-btn[data-action="max"]:hover {
+      background: #115e59;
+    }
+    .stepper-count {
+      flex: 1;
+      text-align: center;
+      font-size: 14px;
+      font-weight: 700;
+      color: #f6c90e;
+      background: #252840;
+      border: none;
+      border-left: 1px solid #3a3f5c;
+      border-right: 1px solid #3a3f5c;
+      padding: 0 4px;
+      height: 36px;
+      line-height: 36px;
+      user-select: none;
+    }
+
+    /* ── STATS — stacked vertically ── */
+    .stat-stack { display: flex; flex-direction: column; gap: 8px; }
+    .stat-card {
+      background: #252840;
+      border-radius: 8px;
+      padding: 10px 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .stat-card .label {
+      font-size: 12px; color: #64748b;
+      text-transform: uppercase; letter-spacing: 0.06em;
+    }
+    .stat-card .value-wrap { text-align: right; }
+    .stat-card .value { font-size: 20px; font-weight: 700; color: #f6c90e; line-height: 1; }
+    .stat-card .unit { font-size: 11px; color: #94a3b8; margin-top: 2px; }
+
+    /* ── SUNSHINE CHART ── */
+    #sunshine-chart-wrap { margin-top: 4px; }
+    #sunshine-chart {
+      width: 100%;
+      height: 80px;
+      display: block;
+    }
+
+    /* ── SAVINGS ── */
+    .input-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+    .input-row label { font-size: 12px; color: #94a3b8; flex: 1; }
+    .input-row input {
+      width: 80px; padding: 5px 8px;
+      border-radius: 6px; border: 1px solid #3a3f5c;
+      background: #252840; color: #e2e8f0;
+      font-size: 13px; text-align: right;
+    }
+
+    /* Savings stacked */
+    .savings-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    .savings-row {
+      background: #252840;
+      border-radius: 8px;
+      padding: 10px 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .savings-row .s-label { font-size: 12px; color: #64748b; }
+    .savings-row .s-value { font-size: 20px; font-weight: 700; line-height: 1; }
+    .savings-row .s-unit { font-size: 11px; color: #94a3b8; text-align: right; margin-top: 2px; }
+
+    /* ── EMPTY STATE ── */
+    #empty-state {
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      height: 100%; gap: 12px;
+      color: #4b5563; font-size: 14px;
+      text-align: center; padding: 24px;
+    }
+    #empty-state svg { opacity: 0.3; }
+
+    /* ── LOADING ── */
+    #loading-overlay {
+      display: none; position: absolute; inset: 0;
+      background: rgba(15,17,23,0.7); z-index: 20;
+      align-items: center; justify-content: center;
+      flex-direction: column; gap: 12px;
+      font-size: 14px; color: #f6c90e;
+    }
+    #loading-overlay.active { display: flex; }
+    .spinner {
+      width: 36px; height: 36px;
+      border: 3px solid #2d3148; border-top-color: #f6c90e;
+      border-radius: 50%; animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── GOOGLE PLACES AUTOCOMPLETE — dark theme ── */
+    .pac-container {
+      background: #1a1d27 !important;
+      border: 1px solid #3a3f5c !important;
+      border-radius: 8px !important;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.6) !important;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+      margin-top: 4px !important;
+      z-index: 1000 !important;
+    }
+    .pac-container-inner {
+      position: relative !important;
+      z-index: 1001 !important;
+    }
+    .pac-item {
+      padding: 10px 14px !important;
+      color: #cbd5e1 !important;
+      font-size: 13px !important;
+      cursor: pointer !important;
+      border-top: 1px solid #2d3148 !important;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+    }
+    .pac-item:first-child { border-top: none !important; }
+    .pac-item:hover, .pac-item-selected { background: #252840 !important; color: #f6c90e !important; }
+    .pac-item-query { color: #e2e8f0 !important; font-weight: 600 !important; }
+    .pac-icon { filter: invert(1) brightness(0.5) !important; }
+    .pac-logo:after { display: none !important; } /* hide "powered by Google" on dropdown */
+    .pac-item:active { background: #252840 !important; } /* Mobile touch support */
+
+    /* ── ROI CHART LEGEND ── */
+    .roi-legend {
+      display: flex; gap: 12px; margin-top: 6px; font-size: 10px; color: #64748b;
+    }
+    .roi-legend span { display: flex; align-items: center; gap: 4px; }
+    .roi-legend .dot {
+      display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #f6c90e;
+    }
+
+    /* ── PERSISTENT SUMMARY BAR ── */
+    #summary-bar {
+      position: absolute;
+      bottom: 16px; left: 50%; transform: translateX(-50%);
+      z-index: 20;
+      background: rgba(26,29,39,0.93);
+      border: 1px solid #2d3148;
+      border-radius: 12px;
+      padding: 10px 20px;
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.55);
+      font-family: sans-serif;
+      white-space: nowrap;
+      pointer-events: none;
+    }
+    .sb-item { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+    .sb-label { font-size: 10px; color: #64748b; text-transform: uppercase; letter-spacing: 0.07em; }
+    .sb-value { font-size: 16px; font-weight: 700; line-height: 1; }
+    .sb-divider { width: 1px; height: 32px; background: #2d3148; }
+
+    /* ── ARRAY SUMMARY PANEL (BOTTOM LEFT) ── */
+    #array-summary-panel {
+      position: fixed !important;
+      bottom: 20px !important;
+      left: 20px !important;
+      z-index: 9999 !important;
+      background: rgba(26,29,39,0.95) !important;
+      border: 2px solid #60a5fa !important;
+      border-radius: 12px !important;
+      padding: 14px 16px !important;
+      display: flex !important;
+      flex-direction: column !important;
+      gap: 8px !important;
+      font-family: sans-serif !important;
+      color: #e2e8f0 !important;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.9) !important;
+      cursor: pointer !important;
+      transition: all 0.2s !important;
+      max-width: 200px !important;
+      visibility: visible !important;
+      opacity: 1 !important;
+      pointer-events: auto !important;
+    }
+    #array-summary-panel:hover {
+      background: rgba(26,29,39,0.98) !important;
+      border-color: #93c5fd !important;
+      box-shadow: 0 6px 24px rgba(0,0,0,0.95) !important;
+    }
+    .array-summary-title {
+      font-size: 12px !important;
+      font-weight: 700 !important;
+      color: #60a5fa !important;
+      text-transform: uppercase !important;
+      letter-spacing: 0.05em !important;
+    }
+    .array-summary-item {
+      display: flex !important;
+      justify-content: space-between !important;
+      align-items: center !important;
+      font-size: 12px !important;
+      gap: 8px !important;
+    }
+    .array-summary-label {
+      color: #94a3b8 !important;
+    }
+    .array-summary-value {
+      font-weight: 600 !important;
+      color: #f6c90e !important;
+    }
+
+    /* ── SEGMENT SUMMARY PANEL (TOP RIGHT) ── */
+    #segment-summary-panel {
+      position: fixed !important;
+      top: 20px !important;
+      right: 20px !important;
+      z-index: 9999 !important;
+      background: rgba(26,29,39,0.95) !important;
+      border: 2px solid #34d399 !important;
+      border-radius: 12px !important;
+      padding: 14px 16px !important;
+      display: flex !important;
+      flex-direction: column !important;
+      gap: 8px !important;
+      font-family: sans-serif !important;
+      color: #e2e8f0 !important;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.9) !important;
+      cursor: pointer !important;
+      transition: all 0.2s !important;
+      max-width: 220px !important;
+      visibility: visible !important;
+      opacity: 1 !important;
+      pointer-events: auto !important;
+    }
+    #segment-summary-panel:hover {
+      background: rgba(26,29,39,0.98) !important;
+      border-color: #6ee7b7 !important;
+      box-shadow: 0 6px 24px rgba(0,0,0,0.95) !important;
+    }
+    .segment-summary-title {
+      font-size: 12px !important;
+      font-weight: 700 !important;
+      color: #34d399 !important;
+      text-transform: uppercase !important;
+      letter-spacing: 0.05em !important;
+    }
+    .segment-summary-item {
+      display: flex !important;
+      justify-content: space-between !important;
+      align-items: center !important;
+      font-size: 12px !important;
+      gap: 8px !important;
+    }
+    .segment-summary-label {
+      color: #94a3b8 !important;
+    }
+    .segment-summary-value {
+      font-weight: 600 !important;
+      color: #34d399 !important;
+    }
+
+    /* ── MOBILE ── */
+    @media (max-width: 680px) {
+      #summary-bar { gap: 12px; padding: 8px 14px; font-size: 12px; bottom: 12px; }
+      .sb-value { font-size: 14px; }
+      #topbar {
+        padding: 8px 12px;
+        gap: 8px;
+        flex-wrap: wrap;
+        overflow: visible;
+        position: relative;
+        z-index: 100;
+      }
+      #topbar h1 { display: none; }
+      /* Row 1: address + search fill the full width */
+      #address-input {
+        min-width: 0;
+        font-size: 16px; /* prevent iOS zoom on focus */
+        flex: 1 1 auto;
+        order: 1;
+        position: relative;
+        z-index: 101;
+      }
+      #search-btn {
+        padding: 8px 12px;
+        font-size: 13px;
+        flex-shrink: 0;
+        order: 2;
+        z-index: 101;
+        position: relative;
+      }
+      /* Row 2: action buttons + sidebar toggle on a second line */
+      #gps-btn       { order: 3; flex-shrink: 0; }
+      #select-roof-btn { order: 4; flex-shrink: 0; }
+      #ruler-btn     { order: 5; flex-shrink: 0; }
+      #clear-ruler-btn { order: 6; flex-shrink: 0; }
+      #sidebar-toggle { order: 7; flex-shrink: 0; }
+      #status-msg { display: none; }
+      #sidebar-toggle { display: block; }
+      #gps-btn, #select-roof-btn { display: block !important; }
+
+      #sidebar {
+        position: absolute;
+        right: 0; top: 0; bottom: 0;
+        width: 88vw;
+        max-width: 340px;
+        z-index: 50;
+        transform: translateX(100%);
+        box-shadow: -4px 0 24px rgba(0,0,0,0.6);
+      }
+      #sidebar.open { transform: translateX(0); }
+
+      #sidebar-backdrop {
+        display: none;
+        position: absolute; inset: 0; z-index: 49;
+        background: rgba(0,0,0,0.5);
+      }
+      #sidebar-backdrop.visible { display: block; }
+
+      .stat-card .value { font-size: 18px; }
+      .savings-row .s-value { font-size: 18px; }
+
+      /* Map overlay bar wraps on small screens */
+      #map-overlay-bar { font-size: 11px !important; padding: 6px 10px !important; white-space: normal !important; }
+    }
+
+    #map {
+      position: relative;
+      overflow: visible;
+    }
+
+  </style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div id="topbar">
+  <h1>☀ Solar Explorer</h1>
+  <input id="address-input" type="text" placeholder="Enter address or lat, lng" autofocus />
+  <button id="search-btn">Search</button>
+  <button id="gps-btn" title="Use your GPS location">📍 My Location</button>
+  <button id="select-roof-btn" title="Click on a roof to select it">🏠 Select Roof</button>
+  <button id="draw-polygon-btn" title="Search for a building first, then draw a zone" disabled>✏ Draw Zone</button>
+  <button id="draw-polygon-finish-btn" title="Close and fill the polygon" style="display:none">✓ Finish</button>
+  <button id="ruler-btn" title="Measure distance on the map">📏 Ruler</button>
+  <button id="clear-ruler-btn" title="Clear ruler measurement" style="display:none">✕ Ruler</button>
+  <span id="status-msg">Enter an address to begin</span>
+  <button id="sidebar-toggle">☰</button>
+</div>
+
+<!-- MAIN -->
+<div id="main">
+
+  <!-- MAP -->
+  <div id="map">
+    <div id="loading-overlay">
+      <div class="spinner"></div>
+      <span id="loading-text">Fetching solar data…</span>
+    </div>
+
+    <!-- PERSISTENT SUMMARY BAR -->
+    <div id="summary-bar">
+      <div class="sb-item">
+        <span class="sb-label">Panels</span>
+        <span class="sb-value" id="sb-panels" style="color:#f6c90e">—</span>
+      </div>
+      <div class="sb-divider"></div>
+      <div class="sb-item">
+        <span class="sb-label">kWh / yr</span>
+        <span class="sb-value" id="sb-kwh" style="color:#60a5fa">—</span>
+      </div>
+      <div class="sb-divider"></div>
+      <div class="sb-item">
+        <span class="sb-label">Savings / yr</span>
+        <span class="sb-value" id="sb-savings" style="color:#34d399">—</span>
+      </div>
+      <div class="sb-divider"></div>
+      <div class="sb-item">
+        <span class="sb-label">Break-even</span>
+        <span class="sb-value" id="sb-breakeven" style="color:#f6c90e">—</span>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Mobile backdrop -->
+  <div id="sidebar-backdrop"></div>
+
+  <!-- SIDEBAR -->
+  <div id="sidebar">
+
+    <!-- EMPTY STATE -->
+    <div id="empty-state">
+      <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <circle cx="12" cy="12" r="5"/>
+        <line x1="12" y1="1" x2="12" y2="3"/>
+        <line x1="12" y1="21" x2="12" y2="23"/>
+        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+        <line x1="1" y1="12" x2="3" y2="12"/>
+        <line x1="21" y1="12" x2="23" y2="12"/>
+        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+      </svg>
+      Search an address to see<br/>solar potential data
+    </div>
+
+    <!-- CONTENT -->
+    <div id="data-content" style="display:none">
+
+      <!-- ROI CHART -->
+      <div class="sidebar-section">
+        <h3>Return on Investment</h3>
+        <div style="font-size:11px;color:#64748b;margin-bottom:8px">
+          Install cost: <span id="roi-install-cost" style="color:#f87171;font-weight:700">—</span>
+          &nbsp;·&nbsp; Break-even: <span id="roi-payback" style="color:#34d399;font-weight:700">—</span>
+        </div>
+        <svg id="roi-chart" width="100%" style="display:block"></svg>
+        <div class="roi-legend">
+          <span><span style="display:inline-block;width:20px;height:2px;background:#60a5fa;border-radius:1px;margin-top:4px"></span>Net value</span>
+          <span><span class="dot"></span>Break-even point</span>
+        </div>
+      </div>
+
+      <!-- SAVINGS CALCULATOR -->
+      <div class="sidebar-section">
+        <h3>Savings Calculator</h3>
+        <div class="savings-stack">
+          <div class="savings-row">
+            <div class="s-label">Annual savings</div>
+            <div>
+              <div class="s-value" id="annual-savings" style="color:#34d399">—</div>
+            </div>
+          </div>
+          <div class="savings-row">
+            <div class="s-label">Lifetime savings<br><span style="font-size:10px">(<span id="lifetime-years">20</span> yrs)</span></div>
+            <div>
+              <div class="s-value" id="lifetime-savings" style="color:#60a5fa">—</div>
+            </div>
+          </div>
+          <div class="savings-row">
+            <div class="s-label">Annual kWh output</div>
+            <div>
+              <div class="s-value" id="annual-kwh" style="color:#f6c90e">—</div>
+              <div class="s-unit">kWh/yr</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- PANEL CONFIGURATION -->
+      <div class="sidebar-section">
+        <h3>Panel Configuration</h3>
+        <div id="seg-config-list"></div>
+      </div>
+
+      <!-- SUNSHINE DISTRIBUTION -->
+      <div class="sidebar-section">
+        <h3>Annual Sunshine Distribution</h3>
+        <div id="sunshine-chart-wrap">
+          <svg id="sunshine-chart"></svg>
+          <div id="sunshine-note" style="font-size:10px;color:#475569;margin-top:4px;text-align:center"></div>
+        </div>
+      </div>
+
+      <!-- KEY STATS -->
+      <div class="sidebar-section">
+        <h3>Solar Stats</h3>
+        <div class="stat-stack" id="stat-grid"></div>
+      </div>
+
+      <!-- MAP OVERLAYS -->
+      <div class="sidebar-section">
+        <h3>Map Overlays</h3>
+        <div class="toggle-row">
+          <label for="tog-panels">Solar Panels</label>
+          <label class="toggle-switch">
+            <input type="checkbox" id="tog-panels" checked />
+            <div class="toggle-track"></div><div class="toggle-knob"></div>
+          </label>
+        </div>
+        <div class="toggle-row">
+          <label for="tog-roof">Roof Outline</label>
+          <label class="toggle-switch">
+            <input type="checkbox" id="tog-roof" />
+            <div class="toggle-track"></div><div class="toggle-knob"></div>
+          </label>
+        </div>
+      </div>
+
+      <!-- CALCULATOR INPUTS -->
+      <div class="sidebar-section">
+        <h3>Calculator Settings</h3>
+        <div class="input-row">
+          <label>Electricity price (€/kWh)</label>
+          <input type="number" id="price-per-kwh" value="0.28" step="0.01" min="0.01" />
+        </div>
+        <div class="input-row">
+          <label>System efficiency (%)</label>
+          <input type="number" id="efficiency" value="80" step="1" min="10" max="100" />
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+  const API_KEY = 'AIzaSyDMpo4xVLbEj0G1l_9WaaDW4kTpIg7TZaw';
+
+  let map, geocoder;
+  let solarData = null;
+  let overlays = { panels: [], roof: [], labels: [], flux: null };
+  let currentConfig = null;
+  let selectingRoof = false;
+  let mapClickListener = null;
+
+  // segPanelCounts: segmentIndex → number of panels to show for that segment
+  // This is the source of truth for panel counts when using the stepper UI.
+  let segPanelCounts = {};
+  let selectedSegmentIndex = null; // When a specific roof segment is selected via click
+
+  // Draw Zone polygon tool state
+  let drawingPolygon = false;
+  let drawPolyPoints = [];
+  let drawPolyLine = null;
+  let drawPolyShape = null;
+  let drawPolyPanels = [];
+  let drawPolyClickListener = null;
+  let drawPolyDblClickListener = null;
+  let drawPolyMoveListener = null;
+  let drawPolyOrientation = 'PORTRAIT'; // 'PORTRAIT' or 'LANDSCAPE'
+  let drawPolyMoveState = null; // { startX, startY, startPoints, mousemoveHandler, mouseupHandler }
+  let drawPolyRotation = 0; // degrees, applied around the centroid of the draw-zone panels
+  let drawPolyBounds = { minLat: Infinity, maxLat: -Infinity, minLng: Infinity, maxLng: -Infinity };
+  let drawRotateIconHideTimer = null;
+  let drawPolyRotating = false; // flag to suppress refill during rotation drag
+  let drawPolyVertexMarkers = []; // custom draggable vertex markers
+  let drawPolyEdgeMarkers = []; // custom clickable edge midpoint markers
+  let drawPolyAzimuth = null; // original azimuth (set on creation, doesn't change)
+  let drawPolyPitch = null; // pitch is fixed (set on creation, doesn't change)
+
+  // ── MOBILE SIDEBAR TOGGLE ─────────────────────────────────────────────────
+  document.getElementById('sidebar-toggle').addEventListener('click', () => {
+    document.getElementById('sidebar').classList.toggle('open');
+    document.getElementById('sidebar-backdrop').classList.toggle('visible');
+  });
+  document.getElementById('sidebar-backdrop').addEventListener('click', () => {
+    document.getElementById('sidebar').classList.remove('open');
+    document.getElementById('sidebar-backdrop').classList.remove('visible');
+  });
+
+  // ── INIT GOOGLE MAP ───────────────────────────────────────────────────────
+  function initMap() {
+    map = new google.maps.Map(document.getElementById('map'), {
+      center: { lat: 52.6646, lng: 4.7960 },
+      zoom: 20,
+      maxZoom: 22,
+      mapTypeId: 'satellite',
+      tilt: 0,
+      mapTypeControl: false,
+      streetViewControl: false,
+      fullscreenControl: false,
+    });
+
+    // ── ADDRESS AUTOCOMPLETE ──
+    const autocomplete = new google.maps.places.Autocomplete(
+      document.getElementById('address-input'),
+      { fields: ['geometry', 'formatted_address'] }
+    );
+
+    // Fix for mobile: ensure pac-container is always visible and positioned correctly
+    autocomplete.addListener('place_changed', async () => {
+      const place = autocomplete.getPlace();
+      if (!place.geometry) return;
+      const lat = place.geometry.location.lat();
+      const lng = place.geometry.location.lng();
+      document.getElementById('address-input').value = place.formatted_address;
+
+      // Close mobile sidebar so map is visible
+      if (window.innerWidth <= 680) {
+        document.getElementById('sidebar').classList.remove('open');
+        document.getElementById('sidebar-backdrop').classList.remove('visible');
+      }
+
+      await runSearch(lat, lng, place.formatted_address);
+    });
+
+    // Mobile: listen for dropdown opening to handle positioning
+    if (window.innerWidth <= 680) {
+      autocomplete.addListener('dropdown_opened', () => {
+        const pacContainer = document.querySelector('.pac-container');
+        if (pacContainer) {
+          pacContainer.style.position = 'fixed';
+          pacContainer.style.zIndex = '1000';
+        }
+      });
+    }
+    geocoder = new google.maps.Geocoder();
+    infoWindow = new google.maps.InfoWindow();
+
+    map.addListener('tilt_changed', () => { if (map.getTilt() !== 0) map.setTilt(0); });
+    map.addListener('bounds_changed', () => { updateRotateIcon(); updateDrawRotateIcon(); });
+
+    // Ensure map fills its container after fonts/layout settle
+    setTimeout(() => google.maps.event.trigger(map, 'resize'), 200);
+
+    // Re-focus the search input after Maps API finishes loading
+    setTimeout(() => document.getElementById('address-input').focus(), 300);
+
+    document.getElementById('search-btn').addEventListener('click', handleSearch);
+    document.getElementById('gps-btn').addEventListener('click', handleGPS);
+    document.getElementById('select-roof-btn').addEventListener('click', handleSelectRoof);
+    document.getElementById('address-input').addEventListener('keydown', e => {
+      if (e.key === 'Enter') handleSearch();
+    });
+    document.getElementById('tog-panels').addEventListener('change', updateOverlayVisibility);
+    document.getElementById('tog-roof').addEventListener('change', updateOverlayVisibility);
+    document.getElementById('price-per-kwh').addEventListener('input', updateSavings);
+    document.getElementById('efficiency').addEventListener('input', updateSavings);
+
+    document.getElementById('ruler-btn').addEventListener('click', handleRulerToggle);
+    document.getElementById('clear-ruler-btn').addEventListener('click', handleClearRuler);
+    document.getElementById('draw-polygon-btn').addEventListener('click', handleDrawPolygon);
+    document.getElementById('draw-polygon-finish-btn').addEventListener('click', closeDrawnPolygon);
+  }
+
+  // ── SEARCH ────────────────────────────────────────────────────────────────
+  async function handleSearch() {
+    const raw = document.getElementById('address-input').value.trim();
+    if (!raw) return;
+    setStatus('Geocoding…', false);
+    document.getElementById('search-btn').disabled = true;
+    try {
+      const latLngRe = /^-?\d+(\.\d+)?\s*,\s*-?\d+(\.\d+)?$/;
+      let lat, lng, formatted;
+      if (latLngRe.test(raw)) {
+        [lat, lng] = raw.split(',').map(Number);
+        formatted = null;
+      } else {
+        for (let i = 0; i < 50; i++) { if (geocoder) break; await new Promise(r => setTimeout(r, 100)); }
+        if (!geocoder) throw new Error('Google Maps failed to load');
+        ({ lat, lng, formatted } = await new Promise((resolve, reject) => {
+          const timer = setTimeout(() => reject(new Error('Geocoding timed out')), 8000);
+          geocoder.geocode({ address: raw }, (results, status) => {
+            clearTimeout(timer);
+            if (status === 'OK' && results[0]) {
+              const loc = results[0].geometry.location;
+              resolve({ lat: loc.lat(), lng: loc.lng(), formatted: results[0].formatted_address });
+            } else reject(new Error(`Geocoding failed: ${status}`));
+          });
+        }));
+      }
+      await runSearch(lat, lng, formatted);
+    } catch (err) {
+      setStatus(err.message || 'Unknown error', true);
+      console.error('[Solar] ERROR:', err);
+    } finally {
+      document.getElementById('search-btn').disabled = false;
+    }
+  }
+
+  // ── GPS LOCATION HANDLER ──────────────────────────────────────────────────
+  function handleGPS() {
+    const gpsBtn = document.getElementById('gps-btn');
+    gpsBtn.disabled = true;
+    setStatus('Getting location…', false);
+
+    if (!navigator.geolocation) {
+      setStatus('Geolocation not supported by your browser', true);
+      gpsBtn.disabled = false;
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const lat = position.coords.latitude;
+        const lng = position.coords.longitude;
+        document.getElementById('address-input').value = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+        setStatus('Location found, searching…', false);
+        runSearch(lat, lng, `📍 ${lat.toFixed(5)}, ${lng.toFixed(5)}`).finally(() => {
+          gpsBtn.disabled = false;
+        });
+      },
+      (error) => {
+        const errorMessages = {
+          1: 'Location access denied. Please enable location permissions.',
+          2: 'Location unavailable. Please try again.',
+          3: 'Location request timed out.'
+        };
+        setStatus(errorMessages[error.code] || 'Unknown location error', true);
+        gpsBtn.disabled = false;
+      },
+      { timeout: 10000, enableHighAccuracy: true }
+    );
+  }
+
+  // ── SELECT ROOF ────────────────────────────────────────────────────────────
+  function handleSelectRoof() {
+    const btn = document.getElementById('select-roof-btn');
+    selectingRoof = !selectingRoof;
+    btn.classList.toggle('active', selectingRoof);
+
+    if (selectingRoof) {
+      // Reset panel array transformations when selecting a roof
+      panelArrayOffset = { dLat: 0, dLng: 0 };
+      panelArrayRotation = 0;
+
+      setStatus('Click on a roof to select it', false);
+      map.setOptions({ draggableCursor: 'pointer' });
+
+      // Remove old listener if exists
+      if (mapClickListener) mapClickListener.remove();
+
+      // Add click listener
+      mapClickListener = map.addListener('click', (e) => {
+        const lat = e.latLng.lat();
+        const lng = e.latLng.lng();
+        selectingRoof = false;
+        btn.classList.remove('active');
+        map.setOptions({ draggableCursor: '' });
+        setStatus(`Selected: ${lat.toFixed(6)}, ${lng.toFixed(6)}`, false);
+
+        // Find which segment this coordinate belongs to
+        if (solarData && solarData.solarPotential) {
+          const segments = solarData.solarPotential.roofSegmentStats || [];
+          const clickPoint = { lat, lng };
+          let foundSegmentIndex = null;
+
+          for (let si = 0; si < segments.length; si++) {
+            const seg = segments[si];
+            if (!seg.outline) continue;
+            const polygon = seg.outline.map(pt => ({ lat: pt.latitude, lng: pt.longitude }));
+            if (pointInPolygon(clickPoint, polygon)) {
+              foundSegmentIndex = si;
+              break;
+            }
+          }
+
+          if (foundSegmentIndex !== null) {
+            // Set selected segment and reset panel counts
+            selectedSegmentIndex = foundSegmentIndex;
+            segPanelCounts = {};
+
+            setStatus(`Selected Roof ${foundSegmentIndex + 1}: ${lat.toFixed(6)}, ${lng.toFixed(6)}`, false);
+            renderSteppers(segments, panelsBySegment);
+            showSegmentSummary(foundSegmentIndex);
+            return;
+          }
+        }
+
+        // Fallback: if no segment found, do full search
+        runSearch(lat, lng, `📍 ${lat.toFixed(5)}, ${lng.toFixed(5)}`);
+      });
+    } else {
+      setStatus('Roof selection cancelled', false);
+      map.setOptions({ draggableCursor: '' });
+      if (mapClickListener) {
+        mapClickListener.remove();
+        mapClickListener = null;
+      }
+    }
+  }
+
+  // ── DRAW ZONE POLYGON TOOL ────────────────────────────────────────────────
+
+  function handleDrawPolygon() {
+    const btn = document.getElementById('draw-polygon-btn');
+    drawingPolygon = !drawingPolygon;
+    btn.classList.toggle('active', drawingPolygon);
+
+    if (drawingPolygon) {
+      // Cancel select-roof if active
+      if (selectingRoof) handleSelectRoof();
+      clearDrawnPolygon();
+      drawPolyPoints = [];
+
+      setStatus('Click to add vertices. Press ✓ Finish (or click the first point) when done.', false);
+      map.setOptions({ draggableCursor: 'crosshair', disableDoubleClickZoom: true });
+      document.getElementById('draw-polygon-finish-btn').style.display = '';
+
+      // Hide API panels immediately so the map is clear for drawing
+      overlays.panels.forEach(p => p.setMap(null));
+
+      drawPolyClickListener = map.addListener('click', (e) => {
+        const lat = e.latLng.lat();
+        const lng = e.latLng.lng();
+
+        // If clicking near the first point (< 2m), close the polygon
+        if (drawPolyPoints.length >= 3) {
+          const first = drawPolyPoints[0];
+          const latM = 111320, lngM = 111320 * Math.cos(lat * Math.PI / 180);
+          const dist = Math.hypot((lat - first.lat) * latM, (lng - first.lng) * lngM);
+          if (dist < 3) { closeDrawnPolygon(); return; }
+        }
+
+        drawPolyPoints.push({ lat, lng });
+        updateDrawPreview();
+      });
+
+      drawPolyMoveListener = map.addListener('mousemove', (e) => {
+        updateDrawPreview(e.latLng);
+      });
+
+      drawPolyDblClickListener = map.addListener('dblclick', (e) => {
+        // dblclick fires one extra click before it — the spurious point is already added
+        // So we keep it as the final point and close the polygon
+        closeDrawnPolygon();
+      });
+    } else {
+      cancelDrawPolygon();
+    }
+  }
+
+  function updateDrawPreview(movingLatLng) {
+    if (drawPolyLine) { drawPolyLine.setMap(null); drawPolyLine = null; }
+    const pts = [...drawPolyPoints];
+    if (movingLatLng) pts.push({ lat: movingLatLng.lat(), lng: movingLatLng.lng() });
+    // Close the preview loop back to first point if we have 2+ points
+    if (pts.length >= 3) pts.push(pts[0]);
+    if (pts.length < 2) return;
+    drawPolyLine = new google.maps.Polyline({
+      path: pts.map(p => new google.maps.LatLng(p.lat, p.lng)),
+      strokeColor: '#a78bfa',
+      strokeOpacity: 0.9,
+      strokeWeight: 2,
+      geodesic: true,
+      clickable: false,
+      map
+    });
+  }
+
+  function closeDrawnPolygon() {
+    // Remove drawing listeners and preview line
+    if (drawPolyClickListener)    { drawPolyClickListener.remove();    drawPolyClickListener    = null; }
+    if (drawPolyMoveListener)     { drawPolyMoveListener.remove();     drawPolyMoveListener     = null; }
+    if (drawPolyDblClickListener) { drawPolyDblClickListener.remove(); drawPolyDblClickListener = null; }
+    if (drawPolyLine) { drawPolyLine.setMap(null); drawPolyLine = null; }
+
+    drawingPolygon = false;
+    document.getElementById('draw-polygon-btn').classList.remove('active');
+    document.getElementById('draw-polygon-finish-btn').style.display = 'none';
+    map.setOptions({ draggableCursor: '', disableDoubleClickZoom: false });
+
+    if (drawPolyPoints.length < 3) {
+      setStatus('Polygon needs at least 3 points.', true);
+      return;
+    }
+
+    // Draw polygon with custom vertex markers (not editable)
+    drawPolyShape = new google.maps.Polygon({
+      paths: drawPolyPoints.map(p => new google.maps.LatLng(p.lat, p.lng)),
+      strokeColor: '#a78bfa',
+      strokeWeight: 2,
+      strokeOpacity: 0,  // Hidden by default
+      fillColor: '#7c3aed',
+      fillOpacity: 0,    // Hidden by default
+      editable: false,
+      draggable: false,
+      map,
+      zIndex: 5
+    });
+
+    // Helper to show polygon
+    const showDrawPolygon = () => {
+      if (drawPolyShape) {
+        drawPolyShape.setOptions({
+          strokeOpacity: 0.9,
+          fillOpacity: 0.12,
+        });
+        showVertexMarkers();
+      }
+    };
+
+    // Helper to hide polygon
+    const hideDrawPolygon = () => {
+      if (drawPolyShape) {
+        drawPolyShape.setOptions({
+          strokeOpacity: 0,
+          fillOpacity: 0,
+        });
+        hideVertexMarkers();
+      }
+    };
+
+    // Show polygon and vertex markers on hover
+    drawPolyShape.addListener('mouseover', showDrawPolygon);
+    drawPolyShape.addListener('mouseout', hideDrawPolygon);
+
+    // Detect hover near polygon using map mousemove
+    let nearPolygonHoverTimeout = null;
+    const onMapMouseMove = (e) => {
+      if (!drawPolyShape || !e.latLng) return;
+
+      const cursorLat = e.latLng.lat();
+      const cursorLng = e.latLng.lng();
+      const hoverThreshold = 0.00005; // ~5 meters at equator
+
+      // Check distance to polygon edges
+      let nearEdge = false;
+      for (let i = 0; i < drawPolyPoints.length; i++) {
+        const p1 = drawPolyPoints[i];
+        const p2 = drawPolyPoints[(i + 1) % drawPolyPoints.length];
+
+        const closest = closestPointOnSegment(
+          { lat: cursorLat, lng: cursorLng },
+          p1,
+          p2
+        );
+
+        const dist = Math.max(
+          Math.abs(closest.lat - cursorLat),
+          Math.abs(closest.lng - cursorLng)
+        );
+
+        if (dist < hoverThreshold) {
+          nearEdge = true;
+          break;
+        }
+      }
+
+      // Show polygon if near edge, hide otherwise
+      if (nearEdge) {
+        clearTimeout(nearPolygonHoverTimeout);
+        showDrawPolygon();
+      } else {
+        // Delay hide to prevent flickering
+        nearPolygonHoverTimeout = setTimeout(hideDrawPolygon, 100);
+      }
+    };
+
+    // Add map mousemove listener for near-hover detection
+    map.addListener('mousemove', onMapMouseMove);
+
+    // Add dblclick listener to polygon to insert vertex on edge
+    drawPolyShape.addListener('dblclick', (e) => {
+      if (!e.latLng) return;
+
+      // Find the nearest edge to the clicked point
+      const clickedLat = e.latLng.lat();
+      const clickedLng = e.latLng.lng();
+
+      let nearestEdgeIdx = -1;
+      let nearestDist = Infinity;
+      let nearestPoint = null;
+
+      // Check distance to each edge
+      for (let i = 0; i < drawPolyPoints.length; i++) {
+        const p1 = drawPolyPoints[i];
+        const p2 = drawPolyPoints[(i + 1) % drawPolyPoints.length];
+
+        // Find closest point on line segment p1-p2
+        const closest = closestPointOnSegment(
+          { lat: clickedLat, lng: clickedLng },
+          p1,
+          p2
+        );
+
+        const dist = Math.hypot(closest.lat - clickedLat, closest.lng - clickedLng);
+        if (dist < nearestDist) {
+          nearestDist = dist;
+          nearestEdgeIdx = i;
+          nearestPoint = closest;
+        }
+      }
+
+      // Insert new vertex after the nearest edge's start vertex
+      if (nearestEdgeIdx !== -1 && nearestPoint) {
+        drawPolyPoints.splice(nearestEdgeIdx + 1, 0, nearestPoint);
+        const path = drawPolyShape.getPath();
+        path.insertAt(nearestEdgeIdx + 1, new google.maps.LatLng(nearestPoint.lat, nearestPoint.lng));
+        refreshDrawPanels();
+        rebuildVertexMarkers();
+      }
+    });
+
+    refreshDrawPanels();
+    rebuildVertexMarkers();
+  }
+
+  // Find the segment whose roof polygon contains the drawn polygon's centroid.
+  function startArrayDrag(domEvent) {
+    if (!drawPolyShape) return;
+    domEvent.stopPropagation();
+    domEvent.preventDefault();
+
+    // Disable map dragging so the map doesn't pan while we move the array
+    map.setOptions({ draggable: false, draggableCursor: 'grabbing' });
+
+    const startPoints = drawPolyPoints.map(p => ({ lat: p.lat, lng: p.lng }));
+    const startX = domEvent.clientX;
+    const startY = domEvent.clientY;
+
+    const projection = map.getProjection();
+    const scale = Math.pow(2, map.getZoom());
+
+    const pixelToLatLngDelta = (dx, dy) => {
+      const anchor = startPoints[0];
+      const worldAnchor = projection.fromLatLngToPoint(new google.maps.LatLng(anchor.lat, anchor.lng));
+      const worldShifted = new google.maps.Point(
+        worldAnchor.x + dx / scale,
+        worldAnchor.y + dy / scale
+      );
+      const shifted = projection.fromPointToLatLng(worldShifted);
+      return { dLat: shifted.lat() - anchor.lat, dLng: shifted.lng() - anchor.lng };
+    };
+
+    drawPolyMoveState = { _rafPending: false };
+
+    const onMouseMove = (me) => {
+      const { dLat, dLng } = pixelToLatLngDelta(me.clientX - startX, me.clientY - startY);
+      drawPolyPoints = startPoints.map(p => ({ lat: p.lat + dLat, lng: p.lng + dLng }));
+      const path = drawPolyShape.getPath();
+      drawPolyPoints.forEach((p, i) => path.setAt(i, new google.maps.LatLng(p.lat, p.lng)));
+      // Update vertex marker positions during drag
+      drawPolyVertexMarkers.forEach((marker, i) => {
+        marker.setPosition(new google.maps.LatLng(drawPolyPoints[i].lat, drawPolyPoints[i].lng));
+      });
+      if (!drawPolyMoveState._rafPending) {
+        drawPolyMoveState._rafPending = true;
+        requestAnimationFrame(() => { drawPolyMoveState._rafPending = false; refreshDrawPanels(); });
+      }
+    };
+
+    const onMouseUp = () => {
+      map.setOptions({ draggable: true, draggableCursor: '' });
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+      drawPolyMoveState = null;
+      refreshDrawPanels();
+      rebuildVertexMarkers();
+    };
+
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+  }
+
+  // Drag handler for the roof panel array (API panels, not draw-zone panels).
+  // A short drag moves the array; a tap (no movement) shows the panel info popup.
+  let roofArrayDragState = null;
+
+  function startRoofArrayDrag(domEvent, poly, p, pNum, seg) {
+    domEvent.stopPropagation();
+    domEvent.preventDefault();
+
+    const startX = domEvent.clientX;
+    const startY = domEvent.clientY;
+    const startOffset = { dLat: panelArrayOffset.dLat, dLng: panelArrayOffset.dLng };
+    let dragged = false;
+
+    map.setOptions({ draggable: false, draggableCursor: 'grabbing' });
+
+    const projection = map.getProjection();
+    const scale = Math.pow(2, map.getZoom());
+
+    const pixelToLatLngDelta = (dx, dy) => {
+      const anchor = { lat: arrayCentroid.lat, lng: arrayCentroid.lng };
+      const worldAnchor = projection.fromLatLngToPoint(new google.maps.LatLng(anchor.lat, anchor.lng));
+      const worldShifted = new google.maps.Point(
+        worldAnchor.x + dx / scale,
+        worldAnchor.y + dy / scale
+      );
+      const shifted = projection.fromPointToLatLng(worldShifted);
+      return { dLat: shifted.lat() - anchor.lat, dLng: shifted.lng() - anchor.lng };
+    };
+
+    let rafPending = false;
+    roofArrayDragState = true;
+
+    const onMouseMove = (me) => {
+      const dx = me.clientX - startX;
+      const dy = me.clientY - startY;
+      if (!dragged && Math.hypot(dx, dy) < 4) return;
+      dragged = true;
+      const delta = pixelToLatLngDelta(dx, dy);
+      panelArrayOffset.dLat = startOffset.dLat + delta.dLat;
+      panelArrayOffset.dLng = startOffset.dLng + delta.dLng;
+      if (!rafPending) {
+        rafPending = true;
+        requestAnimationFrame(() => {
+          rafPending = false;
+          overlays.panels.forEach(p => p.setMap(null));
+          overlays.panels = [];
+          redrawPanels(true);
+        });
+      }
+    };
+
+    const onMouseUp = () => {
+      map.setOptions({ draggable: true, draggableCursor: '' });
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+      roofArrayDragState = null;
+      if (!dragged) {
+        // Treat as a click — show panel info
+        if (selectedPoly === poly) {
+          poly.setOptions({ fillOpacity: 0.88, strokeColor: '#000000', strokeWeight: 0.5, zIndex: 1 });
+          selectedPoly = null;
+          hideMapOverlay();
+          hideColorLegend();
+        } else {
+          if (selectedPoly) {
+            selectedPoly.setOptions({ fillOpacity: 0.88, strokeColor: '#000000', strokeWeight: 0.5, zIndex: 1 });
+          }
+          selectedPoly = poly;
+          poly.setOptions({ fillOpacity: 0.97, strokeColor: '#f6c90e', strokeWeight: 2.5, zIndex: 10 });
+          showPanelInfo(p, pNum, seg);
+          showColorLegend();
+        }
+      } else {
+        // Finished drag — do a final clean redraw
+        overlays.panels.forEach(p => p.setMap(null));
+        overlays.panels = [];
+        redrawPanels(true);
+      }
+    };
+
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+  }
+
+  // ── DRAW-ZONE ROTATE ICON ─────────────────────────────────────────────────
+
+  function updateDrawRotateIcon() {
+    if (drawPolyBounds.minLat === Infinity) { hideDrawRotateIcon(true); return; }
+    const icon = getOrCreateDrawRotateIcon();
+    const px = latLngToMapPixel(drawPolyBounds.minLat, drawPolyBounds.maxLng);
+    if (!px) return;
+    icon.style.left = px.x + 'px';
+    icon.style.top  = px.y + 'px';
+  }
+
+  function getOrCreateDrawRotateIcon() {
+    let icon = document.getElementById('draw-array-rotate-icon');
+    if (!icon) {
+      icon = document.createElement('div');
+      icon.id = 'draw-array-rotate-icon';
+      icon.title = 'Drag to rotate the panel array';
+      icon.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>`;
+      icon.style.opacity = '0';
+      document.getElementById('map').appendChild(icon);
+      icon.addEventListener('mouseenter', () => {
+        clearTimeout(drawRotateIconHideTimer);
+        icon.style.opacity = '1';
+      });
+      icon.addEventListener('mouseleave', () => {
+        drawRotateIconHideTimer = setTimeout(() => { icon.style.opacity = '0'; }, 400);
+      });
+      icon.addEventListener('mousedown', (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        startDrawRotateDrag(e);
+      });
+    }
+    return icon;
+  }
+
+  function showDrawRotateIcon() {
+    clearTimeout(drawRotateIconHideTimer);
+    const icon = document.getElementById('draw-array-rotate-icon');
+    if (icon) icon.style.opacity = '1';
+  }
+
+  function hideDrawRotateIcon(immediate = false) {
+    clearTimeout(drawRotateIconHideTimer);
+    const icon = document.getElementById('draw-array-rotate-icon');
+    if (!icon) return;
+    if (immediate) { icon.style.opacity = '0'; return; }
+    drawRotateIconHideTimer = setTimeout(() => { icon.style.opacity = '0'; }, 400);
+  }
+
+  // Helper: update vertex marker positions to match drawPolyPoints
+  function updateVertexMarkerPositions() {
+    drawPolyVertexMarkers.forEach((marker, i) => {
+      if (i < drawPolyPoints.length) {
+        marker.setPosition(new google.maps.LatLng(drawPolyPoints[i].lat, drawPolyPoints[i].lng));
+      }
+    });
+  }
+
+  // Helper: returns drawPolyPoints rotated by drawPolyRotation around the polygon centroid
+  function getRotatedPolyPoints() {
+    if (drawPolyRotation === 0) return drawPolyPoints;
+    const centroid = polycentroid(drawPolyPoints);
+    const mPerLat = 111320;
+    const mPerLng = 111320 * Math.cos(centroid.lat * Math.PI / 180);
+    const rotRad = drawPolyRotation * Math.PI / 180;
+    const rotCos = Math.cos(rotRad);
+    const rotSin = Math.sin(rotRad);
+
+    return drawPolyPoints.map(p => {
+      const my = (p.lat - centroid.lat) * mPerLat;
+      const mx = (p.lng - centroid.lng) * mPerLng;
+      return {
+        lat: centroid.lat + (my * rotCos - mx * rotSin) / mPerLat,
+        lng: centroid.lng + (mx * rotCos + my * rotSin) / mPerLng,
+      };
+    });
+  }
+
+  function startDrawRotateDrag(domEvent) {
+    const icon = document.getElementById('draw-array-rotate-icon');
+    if (icon) icon.classList.add('dragging');
+    clearTimeout(drawRotateIconHideTimer);
+
+    const mapDiv = document.getElementById('map');
+    const rect   = mapDiv.getBoundingClientRect();
+
+    // Centroid of the drawn polygon (rotation pivot)
+    const centroid  = polycentroid(drawPolyPoints);
+    const centPx    = latLngToMapPixel(centroid.lat, centroid.lng);
+    const centScreenX = rect.left + centPx.x;
+    const centScreenY = rect.top  + centPx.y;
+
+    const startAngle    = Math.atan2(domEvent.clientY - centScreenY, domEvent.clientX - centScreenX);
+    const startRotation = drawPolyRotation;
+    let rafPending = false;
+
+    map.setOptions({ draggable: false, draggableCursor: 'grabbing' });
+    drawPolyRotating = true; // Flag to suppress refill listener updates
+
+    const onMouseMove = (me) => {
+      const angle    = Math.atan2(me.clientY - centScreenY, me.clientX - centScreenX);
+      const deltaDeg = (angle - startAngle) * (180 / Math.PI);
+      drawPolyRotation = startRotation + deltaDeg;
+      if (!rafPending) {
+        rafPending = true;
+        requestAnimationFrame(() => {
+          rafPending = false;
+          refreshDrawPanels();
+          updateDrawRotateIcon();
+        });
+      }
+    };
+
+    const onMouseUp = () => {
+      if (icon) icon.classList.remove('dragging');
+      map.setOptions({ draggable: true, draggableCursor: '' });
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+
+      // Commit rotation: apply rotation to drawPolyPoints permanently
+      const rotatedPoints = getRotatedPolyPoints();
+      drawPolyPoints = rotatedPoints;
+      drawPolyRotation = 0;
+      drawPolyRotating = false;
+
+      // Update polygon shape to show new point positions
+      if (drawPolyShape) {
+        const path = drawPolyShape.getPath();
+        drawPolyPoints.forEach((p, i) => path.setAt(i, new google.maps.LatLng(p.lat, p.lng)));
+      }
+
+      refreshDrawPanels();
+      rebuildVertexMarkers();
+      updateDrawRotateIcon();
+    };
+
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+  }
+
+  // ── ROTATE ICON ───────────────────────────────────────────────────────────
+  // Shown at the bottom-right corner of the panel array on hover.
+  // Converts arrayCentroid + arrayBounds to screen pixels via the map projection.
+
+  function latLngToMapPixel(lat, lng) {
+    const projection = map.getProjection();
+    if (!projection) return null;
+    const scale = Math.pow(2, map.getZoom());
+    const worldPoint = projection.fromLatLngToPoint(new google.maps.LatLng(lat, lng));
+    const bounds = map.getBounds();
+    const ne = bounds.getNorthEast();
+    const nw = new google.maps.LatLng(ne.lat(), bounds.getSouthWest().lng());
+    const origin = projection.fromLatLngToPoint(nw);
+    return {
+      x: (worldPoint.x - origin.x) * scale,
+      y: (worldPoint.y - origin.y) * scale,
+    };
+  }
+
+  function updateRotateIcon() {
+    if (arrayBounds.minLat === Infinity) { hideRotateIcon(); return; }
+    const icon = getOrCreateRotateIcon();
+    // Bottom-right of bounding box = minLat, maxLng
+    const px = latLngToMapPixel(arrayBounds.minLat, arrayBounds.maxLng);
+    if (!px) return;
+    icon.style.left = px.x + 'px';
+    icon.style.top  = px.y + 'px';
+  }
+
+  function getOrCreateRotateIcon() {
+    let icon = document.getElementById('array-rotate-icon');
+    if (!icon) {
+      icon = document.createElement('div');
+      icon.id = 'array-rotate-icon';
+      // Rotate SVG arrow
+      icon.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>`;
+      icon.style.opacity = '0';
+      document.getElementById('map').appendChild(icon);
+      icon.addEventListener('mouseenter', () => {
+        clearTimeout(rotateIconHideTimer);
+        icon.style.opacity = '1';
+      });
+      icon.addEventListener('mouseleave', () => {
+        rotateIconHideTimer = setTimeout(() => { icon.style.opacity = '0'; }, 400);
+      });
+      icon.addEventListener('mousedown', (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        startRotateDrag(e);
+      });
+    }
+    return icon;
+  }
+
+  function showRotateIcon() {
+    clearTimeout(rotateIconHideTimer);
+    const icon = document.getElementById('array-rotate-icon');
+    if (icon) icon.style.opacity = '1';
+  }
+
+  function hideRotateIcon(immediate = false) {
+    clearTimeout(rotateIconHideTimer);
+    const icon = document.getElementById('array-rotate-icon');
+    if (!icon) return;
+    if (immediate) { icon.style.opacity = '0'; return; }
+    rotateIconHideTimer = setTimeout(() => { icon.style.opacity = '0'; }, 400);
+  }
+
+  function startRotateDrag(domEvent) {
+    const icon = document.getElementById('array-rotate-icon');
+    if (icon) icon.classList.add('dragging');
+    clearTimeout(rotateIconHideTimer);
+
+    const mapDiv = document.getElementById('map');
+    const rect   = mapDiv.getBoundingClientRect();
+
+    // Screen position of the array centroid
+    const centPx = latLngToMapPixel(arrayCentroid.lat, arrayCentroid.lng);
+    const centScreenX = rect.left + centPx.x;
+    const centScreenY = rect.top  + centPx.y;
+
+    const startAngle    = Math.atan2(domEvent.clientY - centScreenY, domEvent.clientX - centScreenX);
+    const startRotation = panelArrayRotation;
+    let rafPending = false;
+
+    map.setOptions({ draggable: false, draggableCursor: 'grabbing' });
+
+    const onMouseMove = (me) => {
+      const angle = Math.atan2(me.clientY - centScreenY, me.clientX - centScreenX);
+      const deltaDeg = (angle - startAngle) * (180 / Math.PI);
+      panelArrayRotation = startRotation + deltaDeg;
+      if (!rafPending) {
+        rafPending = true;
+        requestAnimationFrame(() => {
+          rafPending = false;
+          overlays.panels.forEach(p => p.setMap(null));
+          overlays.panels = [];
+          redrawPanels(true);
+          updateRotateIcon();
+        });
+      }
+    };
+
+    const onMouseUp = () => {
+      if (icon) icon.classList.remove('dragging');
+      map.setOptions({ draggable: true, draggableCursor: '' });
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+      overlays.panels.forEach(p => p.setMap(null));
+      overlays.panels = [];
+      redrawPanels(true);
+      updateRotateIcon();
+    };
+
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+  }
+
+  // Called on first close and on every vertex edit.
+  function refreshDrawPanels() {
+    drawPolyPanels.forEach(p => p.setMap(null));
+    drawPolyPanels = [];
+
+    // Detect azimuth and pitch from nearest segment (only once on creation)
+    let azimuth = drawPolyAzimuth !== null ? drawPolyAzimuth : 180;
+    let pitch = drawPolyPitch !== null ? drawPolyPitch : 20;
+    let segIdx = null;
+
+    // Detect azimuth and pitch on first polygon creation (don't change them later)
+    if (drawPolyAzimuth === null || drawPolyPitch === null) {
+      if (solarData && solarData.solarPotential) {
+        const centroid = polycentroid(drawPolyPoints);
+        const segments = solarData.solarPotential.roofSegmentStats || [];
+        const latM = 111320;
+        const lngM = 111320 * Math.cos(centroid.lat * Math.PI / 180);
+
+        // Always pick the segment whose center is nearest to the polygon centroid.
+        // bbox containment is unreliable when segment bboxes overlap.
+        let minDist = Infinity;
+        segments.forEach((seg, si) => {
+          const c = seg.center || {
+            latitude:  (seg.boundingBox.ne.latitude  + seg.boundingBox.sw.latitude)  / 2,
+            longitude: (seg.boundingBox.ne.longitude + seg.boundingBox.sw.longitude) / 2,
+          };
+          const d = Math.hypot(
+            (c.latitude  - centroid.lat) * latM,
+            (c.longitude - centroid.lng) * lngM
+          );
+          if (d < minDist) { minDist = d; azimuth = seg.azimuthDegrees; pitch = seg.pitchDegrees; segIdx = si; }
+        });
+
+        // Save the detected values so they don't change on subsequent updates
+        if (drawPolyAzimuth === null) drawPolyAzimuth = azimuth;
+        if (drawPolyPitch === null) drawPolyPitch = pitch;
+      }
+    }
+
+    // Azimuth stays the same - no extra rotation applied, polygon rotation is visual only
+    // azimuth = drawPolyAzimuth (already set above)
+
+    // Hide the regular API panels while draw zone is active to avoid overlap
+    overlays.panels.forEach(p => p.setMap(null));
+
+    // Compute average kWh/panel for the matched segment
+    let avgKwhPerPanel = 0;
+    if (solarData && segIdx !== null) {
+      const segPanels = (solarData.solarPotential.solarPanels || []).filter(p => p.segmentIndex === segIdx);
+      if (segPanels.length) avgKwhPerPanel = segPanels.reduce((s, p) => s + p.yearlyEnergyDcKwh, 0) / segPanels.length;
+    }
+
+    const count = fillPolygonWithPanels(drawPolyPoints, azimuth, pitch, drawPolyOrientation);
+    const totalKwh = count * avgKwhPerPanel;
+    showDrawPolygonSummary(azimuth, pitch, count, segIdx, totalKwh);
+    setStatus(`Draw Zone: ${count} panels`, false);
+
+    // Update polygon shape to show rotated outline during rotation drag
+    if (drawPolyShape && drawPolyRotation !== 0) {
+      const rotatedPoints = getRotatedPolyPoints();
+      const path = drawPolyShape.getPath();
+      // Suppress refill listener by setting drawPolyRotating flag
+      const wasRotating = drawPolyRotating;
+      drawPolyRotating = true;
+      rotatedPoints.forEach((p, i) => path.setAt(i, new google.maps.LatLng(p.lat, p.lng)));
+      drawPolyRotating = wasRotating;
+      // Update vertex marker positions to match rotated polygon
+      drawPolyVertexMarkers.forEach((marker, i) => {
+        marker.setPosition(new google.maps.LatLng(rotatedPoints[i].lat, rotatedPoints[i].lng));
+      });
+    } else {
+      // When not rotating, update markers to match current drawPolyPoints
+      updateVertexMarkerPositions();
+    }
+  }
+
+  function cancelDrawPolygon() {
+    if (drawPolyClickListener)    { drawPolyClickListener.remove();    drawPolyClickListener    = null; }
+    if (drawPolyMoveListener)     { drawPolyMoveListener.remove();     drawPolyMoveListener     = null; }
+    if (drawPolyDblClickListener) { drawPolyDblClickListener.remove(); drawPolyDblClickListener = null; }
+    if (drawPolyLine) { drawPolyLine.setMap(null); drawPolyLine = null; }
+    drawingPolygon = false;
+    document.getElementById('draw-polygon-btn').classList.remove('active');
+    document.getElementById('draw-polygon-finish-btn').style.display = 'none';
+    map.setOptions({ draggableCursor: '', disableDoubleClickZoom: false });
+    setStatus('Draw Zone cancelled', false);
+  }
+
+  // Helper: show all vertex markers
+  function showVertexMarkers() {
+    drawPolyVertexMarkers.forEach(m => {
+      if (m && m.setMap) m.setMap(map);
+    });
+  }
+
+  // Helper: hide all vertex markers
+  function hideVertexMarkers() {
+    drawPolyVertexMarkers.forEach(m => {
+      if (m && m.setMap) m.setMap(null);
+    });
+  }
+
+  function rebuildVertexMarkers() {
+    if (!drawPolyShape) return;
+
+    // Clear existing markers
+    drawPolyVertexMarkers.forEach(m => m.setMap(null));
+    drawPolyVertexMarkers = [];
+    drawPolyEdgeMarkers.forEach(m => m.setMap(null));
+    drawPolyEdgeMarkers = [];
+
+    const vertexIcon = {
+      path: google.maps.SymbolPath.CIRCLE,
+      scale: 5,
+      fillColor: '#fff',
+      fillOpacity: 0.9,
+      strokeColor: '#a78bfa',
+      strokeWeight: 2,
+    };
+
+    // Create vertex markers (initially hidden)
+    drawPolyPoints.forEach((p, idx) => {
+      const marker = new google.maps.Marker({
+        position: { lat: p.lat, lng: p.lng },
+        map: null,  // Hidden by default
+        icon: vertexIcon,
+        draggable: true,
+        title: `Vertex ${idx + 1}`,
+        zIndex: 10,
+      });
+
+      let dragStartIdx = idx;
+      let dragStartPos = { lat: p.lat, lng: p.lng };
+
+      // Keep markers visible while dragging
+      marker.addListener('mousedown', () => {
+        showVertexMarkers();
+      });
+
+      // On drag, update the point in drawPolyPoints
+      marker.addListener('drag', () => {
+        const pos = marker.getPosition();
+        drawPolyPoints[dragStartIdx] = { lat: pos.lat(), lng: pos.lng() };
+        // Update polygon path (suppress refill by using flag)
+        const path = drawPolyShape.getPath();
+        drawPolyRotating = true;
+        path.setAt(dragStartIdx, new google.maps.LatLng(pos.lat(), pos.lng()));
+        drawPolyRotating = false;
+      });
+
+      // On dragend, refresh panels and rebuild markers
+      marker.addListener('dragend', () => {
+        refreshDrawPanels();
+        rebuildVertexMarkers();
+        hideVertexMarkers();  // Hide after drag ends
+      });
+
+      // On double click, remove the vertex
+      marker.addListener('dblclick', () => {
+        if (drawPolyPoints.length > 3) { // Keep at least 3 vertices
+          drawPolyPoints.splice(idx, 1);
+          const path = drawPolyShape.getPath();
+          path.removeAt(idx);
+          refreshDrawPanels();
+          rebuildVertexMarkers();
+        }
+      });
+
+      drawPolyVertexMarkers.push(marker);
+    });
+  }
+
+  function clearDrawnPolygon() {
+    if (drawPolyShape) { drawPolyShape.setMap(null); drawPolyShape = null; }
+    drawPolyPanels.forEach(p => p.setMap(null));
+    drawPolyPanels = [];
+    drawPolyVertexMarkers.forEach(m => m.setMap(null));
+    drawPolyVertexMarkers = [];
+    drawPolyEdgeMarkers.forEach(m => m.setMap(null));
+    drawPolyEdgeMarkers = [];
+    drawPolyRotation = 0;
+    drawPolyAzimuth = null; // Reset azimuth for next polygon
+    drawPolyPitch = null; // Reset pitch for next polygon
+    drawPolyBounds = { minLat: Infinity, maxLat: -Infinity, minLng: Infinity, maxLng: -Infinity };
+    const el = document.getElementById('draw-polygon-summary');
+    if (el) el.remove();
+    hideDrawRotateIcon(true);
+    // Restore regular API panels
+    updateOverlayVisibility();
+  }
+
+  // Fill a drawn polygon with the maximum number of portrait solar panels,
+  // using the same u/v convention as redrawPanels():
+  //   u = across azimuth (pW = 1.045m, short side)
+  //   v = along azimuth downslope (pH = 1.879m, tall side)
+  //   dLat = v·cos(az) - u·sin(az)
+  //   dLng = v·sin(az) + u·cos(az)
+  // Tries a grid of sub-step offsets to find the placement that fits most panels.
+  // Returns the number of panels placed.
+  function fillPolygonWithPanels(polygon, azimuthDeg, pitchDeg, orientation = 'PORTRAIT') {
+    const panelW = 1.045, panelH = 1.879;
+    // Portrait:  short side (pW) across azimuth, tall side (pH) downslope
+    // Landscape: long side (pH) across azimuth, short side (pW) downslope
+    const isPortrait = orientation !== 'LANDSCAPE';
+    const pW  = isPortrait ? panelW : panelH; // across azimuth (u)
+    const pH  = isPortrait ? panelH : panelW; // downslope (v)
+    const gap = 0;
+    const halfU = pW / 2;
+    const halfV = pH / 2;
+    const stepU = pW + gap;
+    const stepV = pH + gap;
+
+    const anchor  = polycentroid(polygon);
+    const mPerLat = 111320;
+    const mPerLng = 111320 * Math.cos(anchor.lat * Math.PI / 180);
+    const azRad   = azimuthDeg * Math.PI / 180;
+    const azCos   = Math.cos(azRad);
+    const azSin   = Math.sin(azRad);
+
+    const uvToLatLng = (u, v) => ({
+      lat: anchor.lat + (v * azCos - u * azSin) / mPerLat,
+      lng: anchor.lng + (v * azSin + u * azCos) / mPerLng,
+    });
+
+    // Project polygon into u/v space (u=across, v=downslope)
+    const roofVerts = polygon.map(p => latLngToRoofCoords(p, anchor, azimuthDeg));
+    const us = roofVerts.map(r => r.y);
+    const vs = roofVerts.map(r => r.x);
+    const minU = Math.min(...us), maxU = Math.max(...us);
+    const minV = Math.min(...vs), maxV = Math.max(...vs);
+
+    // Count how many panels fit for a given grid origin offset (ou, ov)
+    const countForOffset = (ou, ov) => {
+      let n = 0;
+      for (let cv = minV + halfV + ov; cv < maxV; cv += stepV) {
+        for (let cu = minU + halfU + ou; cu < maxU; cu += stepU) {
+          const corners = [
+            uvToLatLng(cu - halfU, cv - halfV),
+            uvToLatLng(cu + halfU, cv - halfV),
+            uvToLatLng(cu + halfU, cv + halfV),
+            uvToLatLng(cu - halfU, cv + halfV),
+          ];
+          if (corners.every(c => pointInPolygon(c, polygon))) n++;
+        }
+      }
+      return n;
+    };
+
+    // Sample a grid of offsets across one full step to find the best origin.
+    // 6×6 = 36 trials — fast enough, thorough enough.
+    const samples = 6;
+    let bestOU = 0, bestOV = 0, bestCount = -1;
+    for (let si = 0; si < samples; si++) {
+      for (let sj = 0; sj < samples; sj++) {
+        const ou = (si / samples) * stepU;
+        const ov = (sj / samples) * stepV;
+        const n = countForOffset(ou, ov);
+        if (n > bestCount) { bestCount = n; bestOU = ou; bestOV = ov; }
+      }
+    }
+
+    // Compute draw-zone centroid (polygon centroid) for rotation
+    const dzCentroid = anchor; // anchor is already polycentroid(polygon)
+    const mPerLatDZ  = 111320;
+    const mPerLngDZ  = 111320 * Math.cos(dzCentroid.lat * Math.PI / 180);
+    const rotRad = drawPolyRotation * Math.PI / 180;
+    const rotCos = Math.cos(rotRad);
+    const rotSin = Math.sin(rotRad);
+
+    const rotateCorner = (c) => {
+      if (drawPolyRotation === 0) return c;
+      const my = (c.lat - dzCentroid.lat) * mPerLatDZ;
+      const mx = (c.lng - dzCentroid.lng) * mPerLngDZ;
+      return {
+        lat: dzCentroid.lat + (my * rotCos - mx * rotSin) / mPerLatDZ,
+        lng: dzCentroid.lng + (mx * rotCos + my * rotSin) / mPerLngDZ,
+      };
+    };
+
+    // Reset bounding box
+    drawPolyBounds = { minLat: Infinity, maxLat: -Infinity, minLng: Infinity, maxLng: -Infinity };
+
+    // Render panels at the best offset
+    let count = 0;
+    for (let cv = minV + halfV + bestOV; cv < maxV; cv += stepV) {
+      for (let cu = minU + halfU + bestOU; cu < maxU; cu += stepU) {
+        const rawCorners = [
+          uvToLatLng(cu - halfU, cv - halfV),
+          uvToLatLng(cu + halfU, cv - halfV),
+          uvToLatLng(cu + halfU, cv + halfV),
+          uvToLatLng(cu - halfU, cv + halfV),
+        ];
+        if (!rawCorners.every(c => pointInPolygon(c, polygon))) continue;
+
+        const latLngCorners = rawCorners.map(rotateCorner);
+
+        // Track bounds
+        latLngCorners.forEach(c => {
+          if (c.lat < drawPolyBounds.minLat) drawPolyBounds.minLat = c.lat;
+          if (c.lat > drawPolyBounds.maxLat) drawPolyBounds.maxLat = c.lat;
+          if (c.lng < drawPolyBounds.minLng) drawPolyBounds.minLng = c.lng;
+          if (c.lng > drawPolyBounds.maxLng) drawPolyBounds.maxLng = c.lng;
+        });
+
+        const panel = new google.maps.Polygon({
+          paths: latLngCorners.map(c => new google.maps.LatLng(c.lat, c.lng)),
+          strokeColor: '#000',
+          strokeWeight: 0.5,
+          strokeOpacity: 1,
+          fillColor: '#f6c90e',
+          fillOpacity: 0.85,
+          clickable: true,
+          map,
+          zIndex: 6
+        });
+        panel.addListener('mouseover', () => { map.setOptions({ draggableCursor: 'grab' }); showDrawRotateIcon(); });
+        panel.addListener('mouseout',  () => { map.setOptions({ draggableCursor: '' });     hideDrawRotateIcon(); });
+        panel.addListener('mousedown', (e) => startArrayDrag(e.domEvent));
+        drawPolyPanels.push(panel);
+        count++;
+      }
+    }
+
+    updateDrawRotateIcon();
+    return count;
+  }
+
+  function polycentroid(points) {
+    const lat = points.reduce((s, p) => s + p.lat, 0) / points.length;
+    const lng = points.reduce((s, p) => s + p.lng, 0) / points.length;
+    return { lat, lng };
+  }
+
+  // Helper: find the closest point on a line segment (p1-p2) to a given point
+  function closestPointOnSegment(point, p1, p2) {
+    const dx = p2.lng - p1.lng;
+    const dy = p2.lat - p1.lat;
+    const denom = dx * dx + dy * dy;
+
+    if (denom === 0) {
+      // p1 and p2 are the same point
+      return { lat: p1.lat, lng: p1.lng };
+    }
+
+    // Project point onto the line segment
+    const t = Math.max(0, Math.min(1, ((point.lng - p1.lng) * dx + (point.lat - p1.lat) * dy) / denom));
+    return {
+      lat: p1.lat + t * dy,
+      lng: p1.lng + t * dx,
+    };
+  }
+
+  function showDrawPolygonSummary(azimuth, pitch, panelCount, segIdx, totalKwh) {
+    // Anchor inside the map div so it stays within the satellite image
+    const mapEl = document.getElementById('map');
+    let el = document.getElementById('draw-polygon-summary');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'draw-polygon-summary';
+      mapEl.appendChild(el);
+    }
+
+
+    const dir = dirLabel(azimuth);
+    const segLabel = segIdx !== null ? ` · Seg ${segIdx + 1}` : '';
+    const isPortrait = drawPolyOrientation !== 'LANDSCAPE';
+    const orientLabel = isPortrait ? 'Portrait' : 'Landscape';
+    const toggleLabel = isPortrait ? '⇄ Landscape' : '⇄ Portrait';
+    const pW = 1.045, pH = 1.879;
+    const acrossM = isPortrait ? pW : pH;
+    const downM   = isPortrait ? pH : pW;
+
+    const arrowGlyphs = { N:'↑', NE:'↗', E:'→', SE:'↘', S:'↓', SW:'↙', W:'←', NW:'↖' };
+    const dirs8 = ['N','NE','E','SE','S','SW','W','NW'];
+    const arrowGlyph = arrowGlyphs[dirs8[Math.round(azimuth / 45) % 8]];
+
+    const kwhStr = totalKwh > 0 ? `${(totalKwh / 1000).toFixed(2)} MWh/yr` : '—';
+
+    el.innerHTML = `
+      <div class="draw-polygon-summary-title">
+        <span>Draw Zone${segLabel}</span>
+      </div>
+      <div class="segment-summary-item">
+        <span class="segment-summary-label">Direction:</span>
+        <span class="segment-summary-value" style="color:#a78bfa !important">${dir} ${arrowGlyph}</span>
+      </div>
+      <div class="segment-summary-item">
+        <span class="segment-summary-label">Azimuth:</span>
+        <span class="segment-summary-value" style="color:#a78bfa !important">${azimuth.toFixed(1)}°</span>
+      </div>
+      <div class="segment-summary-item">
+        <span class="segment-summary-label">Pitch:</span>
+        <span class="segment-summary-value" style="color:#a78bfa !important">${pitch.toFixed(1)}°</span>
+      </div>
+      <div class="segment-summary-item">
+        <span class="segment-summary-label">Panels:</span>
+        <span class="segment-summary-value" style="color:#f6c90e !important">${panelCount}</span>
+      </div>
+      <div class="segment-summary-item">
+        <span class="segment-summary-label">Est. output:</span>
+        <span class="segment-summary-value" style="color:#34d399 !important">${kwhStr}</span>
+      </div>
+      <div style="margin-top:8px;padding-top:8px;border-top:1px solid #334155;">
+        <div style="font-size:11px;color:#94a3b8;margin-bottom:6px;">
+          <strong style="color:#e2e8f0">${orientLabel}</strong> —
+          ${arrowGlyph} ${downM}m downslope · ↔ ${acrossM}m across
+        </div>
+        <button id="draw-zone-orient-btn" style="
+          width:100%;padding:6px 0;border-radius:6px;border:1px solid #a78bfa;
+          background:rgba(167,139,250,0.15);color:#a78bfa;font-size:12px;
+          font-weight:700;cursor:pointer;letter-spacing:0.03em;">
+          ${toggleLabel}
+        </button>
+      </div>
+    `;
+
+    el.querySelector('#draw-zone-orient-btn').addEventListener('click', (e) => {
+      e.stopPropagation();
+      drawPolyOrientation = isPortrait ? 'LANDSCAPE' : 'PORTRAIT';
+      refreshDrawPanels();
+    });
+
+  }
+
+  // ── RULER MEASUREMENT ─────────────────────────────────────────────────────
+  let rulerMode = false;
+  let rulerPoints = [];
+  let rulerPolyline = null;
+  let rulerMarkers = [];
+
+  function handleRulerToggle() {
+    const btn = document.getElementById('ruler-btn');
+    rulerMode = !rulerMode;
+
+    if (rulerMode) {
+      rulerPoints = [];
+      rulerMarkers = [];
+      btn.classList.add('active');
+      map.setOptions({ draggableCursor: 'crosshair' });
+      setStatus('Click on the map to place measurement points. Double-click to finish.', false);
+
+      if (mapClickListener) { mapClickListener.remove(); }
+      mapClickListener = map.addListener('click', (e) => {
+        const lat = e.latLng.lat();
+        const lng = e.latLng.lng();
+        rulerPoints.push({ lat, lng });
+
+        // Add draggable marker
+        const marker = new google.maps.Marker({
+          position: { lat, lng },
+          map: map,
+          title: `Point ${rulerPoints.length}`,
+          icon: 'http://maps.google.com/mapfiles/ms/icons/blue-dot.png',
+          draggable: true
+        });
+
+        // Update ruler when marker is dragged
+        marker.addListener('drag', () => {
+          const idx = rulerMarkers.indexOf(marker);
+          if (idx !== -1) {
+            rulerPoints[idx] = { lat: marker.getPosition().lat(), lng: marker.getPosition().lng() };
+            updateRulerLine();
+            updateRulerDisplay();
+          }
+        });
+
+        rulerMarkers.push(marker);
+
+        // Draw line if we have 2+ points
+        if (rulerPoints.length >= 2) {
+          updateRulerLine();
+          updateRulerDisplay();
+        }
+      });
+    } else {
+      btn.classList.remove('active');
+      if (mapClickListener) { mapClickListener.remove(); mapClickListener = null; }
+      map.setOptions({ draggableCursor: '' });
+      setStatus('Ruler mode disabled.', false);
+    }
+  }
+
+  function handleClearRuler() {
+    rulerMode = false;
+    rulerPoints = [];
+    document.getElementById('ruler-btn').classList.remove('active');
+    document.getElementById('clear-ruler-btn').style.display = 'none';
+
+    if (rulerPolyline) { rulerPolyline.setMap(null); rulerPolyline = null; }
+    rulerMarkers.forEach(m => m.setMap(null));
+    rulerMarkers = [];
+
+    if (mapClickListener) { mapClickListener.remove(); mapClickListener = null; }
+    map.setOptions({ draggableCursor: '' });
+
+    // Remove ruler info box
+    const infoBox = document.getElementById('ruler-info');
+    if (infoBox) infoBox.remove();
+
+    setStatus('Ruler cleared.', false);
+  }
+
+  function updateRulerLine() {
+    if (rulerPolyline) rulerPolyline.setMap(null);
+
+    if (rulerPoints.length >= 2) {
+      rulerPolyline = new google.maps.Polyline({
+        path: rulerPoints,
+        map: map,
+        strokeColor: '#4f46e5',
+        strokeWeight: 2,
+        strokeOpacity: 0.8,
+        geodesic: true
+      });
+    }
+  }
+
+  function updateRulerDisplay() {
+    let totalMeters = 0;
+    for (let i = 0; i < rulerPoints.length - 1; i++) {
+      const d = google.maps.geometry.spherical.computeDistanceBetween(
+        new google.maps.LatLng(rulerPoints[i].lat, rulerPoints[i].lng),
+        new google.maps.LatLng(rulerPoints[i + 1].lat, rulerPoints[i + 1].lng)
+      );
+      totalMeters += d;
+    }
+
+    let infoBox = document.getElementById('ruler-info');
+    if (!infoBox) {
+      infoBox = document.createElement('div');
+      infoBox.id = 'ruler-info';
+      infoBox.style.cssText = `
+        position: fixed;
+        bottom: 100px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(79, 70, 229, 0.95);
+        color: white;
+        padding: 12px 20px;
+        border-radius: 8px;
+        font-size: 18px;
+        font-weight: bold;
+        z-index: 1000;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+      `;
+      document.body.appendChild(infoBox);
+    }
+
+    infoBox.textContent = `${totalMeters.toFixed(2)} m`;
+    document.getElementById('clear-ruler-btn').style.display = 'block';
+  }
+
+  // ── SHARED SEARCH RUNNER ──────────────────────────────────────────────────
+  async function runSearch(lat, lng, label) {
+    // Reset panel array transformations when loading new location
+    panelArrayOffset = { dLat: 0, dLng: 0 };
+    panelArrayRotation = 0;
+    selectedSegmentIndex = null;
+    hideSegmentSummary();
+
+    setStatus('Fetching solar data…', false);
+    document.getElementById('search-btn').disabled = true;
+    try {
+      const data = await fetchSolarData(lat, lng);
+      solarData = data;
+
+      // Start from zoom 15 and animate in to the building bounding box
+      map.setCenter({ lat, lng });
+      map.setZoom(15);
+      map.setTilt(0);
+
+      // Render data (panels etc.) while zoomed out — they won't be visible yet
+      renderAll(data);
+      setStatus(label || (lat.toFixed(5) + ', ' + lng.toFixed(5)), false);
+
+      // On mobile: close sidebar so map is visible
+      if (window.innerWidth <= 680) {
+        document.getElementById('sidebar').classList.remove('open');
+        document.getElementById('sidebar-backdrop').classList.remove('visible');
+        setTimeout(() => google.maps.event.trigger(map, 'resize'), 50);
+      }
+
+      // Animate zoom from 15 → final fitted zoom
+      await animateZoomToBuilding(data);
+    } catch (err) {
+      setStatus(err.message || 'Unknown error', true);
+      throw err;
+    } finally {
+      document.getElementById('search-btn').disabled = false;
+    }
+  }
+
+  // Animate zoom step by step, then fit to building bounding box at ~80% fill
+  async function animateZoomToBuilding(data) {
+    const bbox = data.boundingBox;
+    const center = data.center;
+
+    // Compute target zoom so the bounding box fills ~80% of the map viewport
+    const targetZoom = computeFitZoom(bbox, 0.80);
+
+    // Animate from current zoom up to targetZoom in steps
+    const startZoom = map.getZoom();
+    const steps = targetZoom - startZoom;
+    if (steps <= 0) { map.setZoom(targetZoom); return; }
+
+    for (let z = startZoom + 1; z <= targetZoom; z++) {
+      await new Promise(r => setTimeout(r, 220));
+      map.setZoom(z);
+      map.setCenter({ lat: center.latitude, lng: center.longitude });
+    }
+  }
+
+  // Calculate zoom level that fits the bounding box into `fill` fraction of the map div
+  function computeFitZoom(bbox, fill) {
+    const mapEl = document.getElementById('map');
+    const mapW = mapEl.offsetWidth  || 600;
+    const mapH = mapEl.offsetHeight || 400;
+
+    const latDiff = Math.abs(bbox.ne.latitude  - bbox.sw.latitude);
+    const lngDiff = Math.abs(bbox.ne.longitude - bbox.sw.longitude);
+
+    // Metres per degree at the building's latitude
+    const midLat = (bbox.ne.latitude + bbox.sw.latitude) / 2;
+    const mPerDegLat = 111320;
+    const mPerDegLng = 111320 * Math.cos(midLat * Math.PI / 180);
+
+    const bboxW = lngDiff * mPerDegLng; // metres
+    const bboxH = latDiff * mPerDegLat;
+
+    // Google Maps: at zoom z, 1 pixel = 156543.03392 * cos(lat) / 2^z metres
+    const metersPerPxBase = 156543.03392 * Math.cos(midLat * Math.PI / 180);
+
+    // We want: bboxW / (metersPerPx) = mapW * fill → metersPerPx = bboxW / (mapW * fill)
+    const targetMppW = bboxW / (mapW * fill);
+    const targetMppH = bboxH / (mapH * fill);
+    const targetMpp = Math.max(targetMppW, targetMppH); // use the more constrained axis
+
+    const zoom = Math.log2(metersPerPxBase / targetMpp);
+    // Cap between 18 and 22
+    return Math.min(22, Math.max(18, Math.round(zoom)));
+  }
+
+  // ── SOLAR API ─────────────────────────────────────────────────────────────
+  async function fetchSolarData(lat, lng) {
+    const url = `https://solar.googleapis.com/v1/buildingInsights:findClosest?location.latitude=${lat}&location.longitude=${lng}&requiredQuality=LOW&key=${API_KEY}`;
+    const resp = await fetch(url);
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({}));
+      throw new Error((err.error && err.error.message) || `API error ${resp.status}`);
+    }
+    return resp.json();
+  }
+
+  // ── DIRECTION HELPERS ─────────────────────────────────────────────────────
+  const DIRS = ['N','NE','E','SE','S','SW','W','NW'];
+  function dirLabel(deg) { return DIRS[Math.round(deg / 45) % 8]; }
+
+  // Favoured azimuths: E(90), SE(135), S(180), SW(225), W(270)
+  const GOOD_AZIMUTHS = new Set(['E','SE','S','SW','W']);
+  let segmentAverageAzimuths = {}; // Store the average azimuth per segment
+  let globalBestSegmentIndex = 0; // Best segment's index for uniform grid alignment
+  let excludedPanels = new Set(); // Track panels excluded by user
+  let panelArrayOffset = { dLat: 0, dLng: 0 }; // Offset for moving entire array
+  let panelArrayRotation = 0; // Rotation in degrees for entire array
+  let arrayControlsVisible = false; // Track if controls are visible
+  let arrayCentroid = { lat: 0, lng: 0 }; // Center point of entire panel array for rotation
+  let arrayBounds = { minLat: 0, maxLat: 0, minLng: 0, maxLng: 0 }; // Bounding box of rendered panels
+  let rotateIconHideTimer = null; // Debounce timer for hiding rotate icon
+
+  // ── RENDER ALL ────────────────────────────────────────────────────────────
+  function renderAll(data) {
+    clearOverlays();
+    const sp = data.solarPotential;
+
+    document.getElementById('empty-state').style.display = 'none';
+    document.getElementById('data-content').style.display = 'block';
+    document.getElementById('draw-polygon-btn').disabled = false;
+    document.getElementById('draw-polygon-btn').title = 'Draw a custom polygon and fill with solar panels';
+
+    const allPanels  = sp.solarPanels || [];
+    const segments   = sp.roofSegmentStats || [];
+
+    // Calculate average azimuth per segment (panels within each segment use their segment's average)
+    segmentAverageAzimuths = {};
+    segments.forEach((seg, si) => {
+      const panelsInSegment = allPanels.filter(p => p.segmentIndex === si);
+      if (panelsInSegment.length > 0) {
+        let totalAz = 0;
+        panelsInSegment.forEach(p => {
+          totalAz += p.azimuthDegrees || seg.azimuthDegrees;
+        });
+        segmentAverageAzimuths[si] = totalAz / panelsInSegment.length;
+      } else {
+        segmentAverageAzimuths[si] = seg.azimuthDegrees;
+      }
+    });
+
+    // Build map: segmentIndex → all panels on that segment
+    const panelsBySegment = {};
+    allPanels.forEach(p => {
+      if (!panelsBySegment[p.segmentIndex]) panelsBySegment[p.segmentIndex] = [];
+      panelsBySegment[p.segmentIndex].push(p);
+    });
+
+    // Pick the single best segment: prefer good azimuths, then highest sunshine
+    let bestSi = null, bestScore = -Infinity;
+    segments.forEach((seg, si) => {
+      if (!panelsBySegment[si] || !panelsBySegment[si].length) return;
+      const isGood = GOOD_AZIMUTHS.has(dirLabel(seg.azimuthDegrees)) ? 1e6 : 0;
+      const sunshine = Math.max(...seg.stats.sunshineQuantiles);
+      const score = isGood + sunshine;
+      if (score > bestScore) { bestScore = score; bestSi = si; }
+    });
+
+    if (bestSi === null) bestSi = Object.keys(panelsBySegment).map(Number)[0] ?? 0;
+    globalBestSegmentIndex = bestSi; // Store for use in redrawPanels
+
+    // Initialise segPanelCounts: only the chosen segment at max count
+    segPanelCounts = {};
+    segments.forEach((_, si) => {
+      segPanelCounts[si] = si === bestSi ? (panelsBySegment[si] || []).length : 0;
+    });
+
+    // currentConfig is kept for compatibility with renderStats / lifetime
+    // Normalize panel configuration to ensure uniform rows/columns
+    currentConfig = (sp.solarPanelConfigs || []).slice(-1)[0] || null;
+    if (currentConfig && currentConfig.panelConfigs) {
+      const configs = currentConfig.panelConfigs;
+      // Find the most common rows/cols combination to ensure uniformity
+      const rowCounts = {}, colCounts = {};
+      configs.forEach(cfg => {
+        rowCounts[cfg.panelRows] = (rowCounts[cfg.panelRows] || 0) + 1;
+        colCounts[cfg.panelCols] = (colCounts[cfg.panelCols] || 0) + 1;
+      });
+      const uniformRows = Object.entries(rowCounts).sort((a, b) => b[1] - a[1])[0]?.[0];
+      const uniformCols = Object.entries(colCounts).sort((a, b) => b[1] - a[1])[0]?.[0];
+      if (uniformRows && uniformCols) {
+        configs.forEach(cfg => {
+          cfg.panelRows = parseInt(uniformRows);
+          cfg.panelCols = parseInt(uniformCols);
+        });
+      }
+    }
+
+    renderSteppers(segments, panelsBySegment);
+    renderStats(data);
+    renderSunshineChart(sp.wholeRoofStats.sunshineQuantiles);
+    updateSavings();
+
+    drawRoofBbox(data.boundingBox);
+    drawRoofSegments();
+    redrawPanels();
+    updateOverlayVisibility();
+
+  }
+
+  // ── CALCULATE GRID DIMENSIONS ─────────────────────────────────────────────
+  // Calculates rows × cols for a given panel count
+  // ── STEPPER UI ────────────────────────────────────────────────────────────
+  function renderSteppers(segments, panelsBySegment) {
+    const list = document.getElementById('seg-config-list');
+
+    // If a specific segment is selected, filter to only that segment
+    let segmentsToShow = segments;
+    let panelsToShow = panelsBySegment;
+    if (selectedSegmentIndex !== null) {
+      segmentsToShow = [segments[selectedSegmentIndex]];
+      panelsToShow = { 0: panelsBySegment[selectedSegmentIndex] || [] };
+    }
+
+    list.innerHTML = segmentsToShow.map((seg, displaySi) => {
+      const actualSi = selectedSegmentIndex !== null ? selectedSegmentIndex : displaySi;
+      const panels = panelsToShow[displaySi] || [];
+      if (!panels.length) return '';
+      const dir   = dirLabel(seg.azimuthDegrees);
+      const pitch = seg.pitchDegrees.toFixed(1);
+      const area  = seg.stats.areaMeters2.toFixed(1);
+      const maxSun = Math.max(...seg.stats.sunshineQuantiles).toFixed(0);
+      const count  = segPanelCounts[actualSi] || 0;
+      const maxCount = panels.length;
+
+      const hasBeenMaxed = count > 0; // If count > 0, assume user has interacted
+      const azimuth = seg.azimuthDegrees;
+      const arrowSymbol = ['↑', '↗', '→', '↘', '↓', '↙', '←', '↖'][Math.round(azimuth / 45) % 8];
+      const roofLabel = selectedSegmentIndex !== null ? `Roof ${selectedSegmentIndex + 1}` : `Roof ${actualSi + 1}`;
+      return `<div class="seg-stepper" data-si="${actualSi}">
+        <div class="seg-stepper-header">
+          <span class="seg-stepper-title">${roofLabel} — ${dir} facing</span>
+          <span class="seg-stepper-dir"><span style="font-size:18px;margin-right:4px">${arrowSymbol}</span>${azimuth.toFixed(0)}° · ${pitch}° pitch</span>
+        </div>
+        <div class="seg-stepper-row"><span>Area</span><span>${area} m²</span></div>
+        <div class="seg-stepper-row"><span>Max panels</span><span>${maxCount}</span></div>
+        <div class="stepper-control">
+          <button class="stepper-btn" data-si="${actualSi}" data-action="min" title="Remove all panels"${count <= 0 ? ' disabled' : ''}>Min</button>
+          <button class="stepper-btn" data-si="${actualSi}" data-delta="-1"${count <= 0 ? ' disabled' : ''}>−</button>
+          <div class="stepper-count" id="stepper-count-${actualSi}">${count}</div>
+          <button class="stepper-btn" data-si="${actualSi}" data-delta="+1"${count >= maxCount ? ' disabled' : ''}>+</button>
+          <button class="stepper-btn stepper-right" data-si="${actualSi}" data-action="max" title="Add all panels"${count >= maxCount ? ' disabled' : ''}>Max</button>
+        </div>
+      </div>`;
+    }).join('');
+
+    list.querySelectorAll('.stepper-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const si = parseInt(btn.dataset.si);
+        const panels = solarData.solarPotential.solarPanels.filter(p => p.segmentIndex === si);
+        const maxCount = panels.length;
+        let newCount;
+
+        if (btn.dataset.action === 'max') {
+          // Max button: set to maximum
+          newCount = maxCount;
+        } else if (btn.dataset.action === 'min') {
+          // Min button: set to zero
+          newCount = 0;
+        } else if (btn.dataset.delta) {
+          // Plus or minus button: increment/decrement by 1
+          const delta = parseInt(btn.dataset.delta);
+          newCount = Math.max(0, Math.min(maxCount, (segPanelCounts[si] || 0) + delta));
+        } else {
+          return;
+        }
+
+        if (newCount === segPanelCounts[si]) return;
+        segPanelCounts[si] = newCount;
+
+        // Re-render to update grid display
+        renderSteppers(solarData.solarPotential.roofSegmentStats, panelsBySegment);
+
+        updateSavings();
+        redrawPanels();
+      });
+    });
+
+  }
+
+  // ── SUNSHINE CHART ────────────────────────────────────────────────────────
+  function renderSunshineChart(quantiles) {
+    const svg = document.getElementById('sunshine-chart');
+    const W = 288, H = 72;
+    svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+
+    const n = quantiles.length;
+    const maxVal = quantiles[n - 1];
+    const minVal = quantiles[0];
+    const barW = Math.floor(W / n) - 2;
+    const chartH = H - 14;
+
+    let content = '';
+    quantiles.forEach((v, i) => {
+      const barH = Math.max(3, (v / maxVal) * chartH);
+      const x = i * (W / n) + 1;
+      const y = chartH - barH;
+      const t = (v - minVal) / (maxVal - minVal);
+      const r = Math.round(246 * t + 59 * (1 - t));
+      const g = Math.round(201 * t + 130 * (1 - t));
+      const b = Math.round(14 * t + 246 * (1 - t));
+      content += `<rect x="${x}" y="${y}" width="${barW}" height="${barH}" rx="2" fill="rgb(${r},${g},${b})" opacity="0.9"/>`;
+      if (i === 0 || i === Math.floor(n/2) || i === n-1) {
+        content += `<text x="${x + barW/2}" y="${y - 2}" text-anchor="middle" font-size="8" fill="#94a3b8">${v.toFixed(0)}</text>`;
+      }
+      const pct = Math.round((i / (n - 1)) * 100);
+      if (i === 0 || i === Math.floor(n/4) || i === Math.floor(n/2) || i === Math.floor(3*n/4) || i === n-1) {
+        content += `<text x="${x + barW/2}" y="${H - 1}" text-anchor="middle" font-size="8" fill="#475569">${pct}%</text>`;
+      }
+    });
+
+    svg.innerHTML = content;
+    document.getElementById('sunshine-note').textContent =
+      `Annual sunshine hours across roof pixels — ${minVal.toFixed(0)} to ${maxVal.toFixed(0)} hrs/yr`;
+  }
+
+  // ── STATS — vertical stack ────────────────────────────────────────────────
+  function renderStats(data) {
+    const sp = data.solarPotential;
+    const cards = [
+      { label: 'Max Panels', value: sp.maxArrayPanelsCount, unit: 'panels' },
+      { label: 'Roof Area', value: sp.maxArrayAreaMeters2.toFixed(0), unit: 'm²' },
+      { label: 'Max Sunshine', value: sp.maxSunshineHoursPerYear.toFixed(0), unit: 'hrs/year' },
+      { label: 'CO₂ Factor', value: sp.carbonOffsetFactorKgPerMwh.toFixed(0), unit: 'kg/MWh' },
+      { label: 'Panel Power', value: sp.panelCapacityWatts, unit: 'W each' },
+      { label: 'Lifetime', value: sp.panelLifetimeYears, unit: 'years' },
+    ];
+    document.getElementById('stat-grid').innerHTML = cards.map(c => `
+      <div class="stat-card">
+        <div class="label">${c.label}</div>
+        <div class="value-wrap">
+          <div class="value">${c.value}</div>
+          <div class="unit">${c.unit}</div>
+        </div>
+      </div>`).join('');
+    document.getElementById('lifetime-years').textContent = sp.panelLifetimeYears;
+  }
+
+  // ── SAVINGS ───────────────────────────────────────────────────────────────
+  function updateSavings() {
+    if (!solarData) return;
+    const sp = solarData.solarPotential;
+    const allPanels = sp.solarPanels || [];
+    const price = parseFloat(document.getElementById('price-per-kwh').value) || 0.28;
+    const eff   = (parseFloat(document.getElementById('efficiency').value) || 80) / 100;
+
+    // Sum kWh only from panels that are shown (within count per segment)
+    const shownBySegment = {};
+    Object.entries(segPanelCounts).forEach(([si, cnt]) => { shownBySegment[si] = cnt; });
+
+    const segOffsets = buildSegOffsets();
+    const segCursor = {};
+    let totalKwh = 0, totalPanels = 0;
+    allPanels.forEach(p => {
+      const si = p.segmentIndex;
+      const limit = shownBySegment[si] || 0;
+      segCursor[si] = (segCursor[si] || 0) + 1;
+      if (segCursor[si] <= limit) {
+        totalKwh += p.yearlyEnergyDcKwh;
+        totalPanels++;
+      }
+    });
+
+    const kwhYear = totalKwh * eff;
+    const annual  = kwhYear * price;
+    const lifetime = annual * sp.panelLifetimeYears;
+
+    // Install cost estimate: €300/panel + €1500 fixed
+    const installCost = totalPanels * 300 + 1500;
+    const paybackYear = annual > 0 ? installCost / annual : null;
+    const withinLife  = paybackYear !== null && paybackYear <= sp.panelLifetimeYears;
+
+    document.getElementById('annual-savings').textContent  = `€${annual.toLocaleString('en', { maximumFractionDigits: 0 })}`;
+    document.getElementById('lifetime-savings').textContent = `€${lifetime.toLocaleString('en', { maximumFractionDigits: 0 })}`;
+    document.getElementById('annual-kwh').textContent      = kwhYear.toLocaleString('en', { maximumFractionDigits: 0 });
+
+    // Summary bar (always visible)
+    const sbPanels   = document.getElementById('sb-panels');
+    const sbKwh      = document.getElementById('sb-kwh');
+    const sbSavings  = document.getElementById('sb-savings');
+    const sbBreak    = document.getElementById('sb-breakeven');
+    if (sbPanels)  sbPanels.textContent  = totalPanels;
+    if (sbKwh)     sbKwh.textContent     = kwhYear.toLocaleString('en', { maximumFractionDigits: 0 });
+    if (sbSavings) sbSavings.textContent = `€${annual.toLocaleString('en', { maximumFractionDigits: 0 })}`;
+    if (sbBreak)   sbBreak.textContent   = withinLife ? `${paybackYear.toFixed(1)} yr` : '—';
+
+    renderROIChart(totalPanels, annual, sp.panelLifetimeYears);
+
+    // Update array summary panel
+    showArraySummary();
+  }
+
+  // ── ROI CHART — single net-value line ─────────────────────────────────────
+  // Y = cumulative savings − installation cost
+  // Starts negative (cost), crosses zero at break-even, goes positive (profit).
+  function renderROIChart(panelCount, annualSavings, lifetimeYears) {
+    const svg = document.getElementById('roi-chart');
+    if (!svg) return;
+
+    const installCost = panelCount * 300 + 1500;
+    document.getElementById('roi-install-cost').textContent = `€${installCost.toLocaleString('en')}`;
+
+    // Net value at year y = (annualSavings * y) - installCost
+    // Payback = installCost / annualSavings
+    const paybackYear = annualSavings > 0 ? installCost / annualSavings : null;
+    const withinLifetime = paybackYear !== null && paybackYear <= lifetimeYears;
+
+    document.getElementById('roi-payback').textContent = withinLifetime
+      ? `${paybackYear.toFixed(1)} yrs`
+      : `>${lifetimeYears} yrs`;
+
+    const W = 292, H = 160;
+    const padL = 52, padR = 12, padT = 14, padB = 26;
+    const chartW = W - padL - padR;
+    const chartH = H - padT - padB;
+
+    svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+    svg.setAttribute('height', H);
+
+    // Net value range: min = -installCost (year 0), max = net at lifetime
+    const netAtLifetime = annualSavings * lifetimeYears - installCost;
+    const yMin = -installCost;
+    const yMax = Math.max(netAtLifetime, 0);
+    const yRange = yMax - yMin || 1;
+
+    const xScale = y => padL + (y / lifetimeYears) * chartW;
+    // yMin maps to bottom (padT + chartH), yMax maps to top (padT)
+    const yScale = v => padT + chartH - ((v - yMin) / yRange) * chartH;
+
+    // Zero axis y-position
+    const zeroY = yScale(0);
+
+    // ── Grid lines ──
+    let gridLines = '';
+    const gridSteps = 5;
+    for (let i = 0; i <= gridSteps; i++) {
+      const v = yMin + (i / gridSteps) * yRange;
+      const y = yScale(v);
+      const absV = Math.abs(v);
+      const sign = v < 0 ? '-' : v > 0 ? '+' : '';
+      const label = absV >= 1000 ? `${sign}€${(absV/1000).toFixed(0)}k` : `${sign}€${absV.toFixed(0)}`;
+      const isZero = Math.abs(v) < yRange * 0.02;
+      gridLines += `<line x1="${padL}" y1="${y}" x2="${W - padR}" y2="${y}"
+        stroke="${isZero ? '#3a3f5c' : '#2d3148'}" stroke-width="${isZero ? 1.5 : 1}"/>`;
+      gridLines += `<text x="${padL - 4}" y="${y + 3.5}" text-anchor="end" font-size="8"
+        fill="${isZero ? '#94a3b8' : '#475569'}">${label}</text>`;
+    }
+
+    // Zero line (prominent)
+    gridLines += `<line x1="${padL}" y1="${zeroY}" x2="${W - padR}" y2="${zeroY}"
+      stroke="#3a3f5c" stroke-width="1.5" stroke-dasharray="4,3"/>`;
+
+    // ── X-axis labels ──
+    let xLabels = '';
+    const xTicks = [0, 5, 10, 15, lifetimeYears].filter((v, i, a) => a.indexOf(v) === i);
+    xTicks.forEach(yr => {
+      if (withinLifetime && Math.abs(yr - paybackYear) < 1.5) return;
+      const x = xScale(yr);
+      xLabels += `<text x="${x}" y="${H - 6}" text-anchor="middle" font-size="8" fill="#475569">${yr}yr</text>`;
+    });
+
+    // ── Net value line ──
+    let pts = '';
+    for (let yr = 0; yr <= lifetimeYears; yr++) {
+      const netV = annualSavings * yr - installCost;
+      const x = xScale(yr);
+      const y = yScale(netV);
+      pts += (yr === 0 ? `M${x},${y}` : ` L${x},${y}`);
+    }
+
+    // ── Area fill — negative (red-tinted) below zero, positive (green-tinted) above ──
+    // Build two clip regions: below zero and above zero
+    const x0 = xScale(0), xEnd = xScale(lifetimeYears);
+    let areaPath = '';
+
+    if (withinLifetime) {
+      const bx = xScale(paybackYear);
+      const by = yScale(0); // should equal zeroY
+
+      // Negative area (year 0 → payback)
+      const negPts = `M${x0},${yScale(-installCost)} L${bx},${by} L${bx},${zeroY} L${x0},${zeroY} Z`;
+      areaPath += `<path d="${negPts}" fill="#f87171" opacity="0.08"/>`;
+
+      // Positive area (payback → lifetime)
+      let posD = `M${bx},${zeroY}`;
+      for (let yr = Math.ceil(paybackYear); yr <= lifetimeYears; yr++) {
+        posD += ` L${xScale(yr)},${yScale(annualSavings * yr - installCost)}`;
+      }
+      posD += ` L${xEnd},${zeroY} Z`;
+      areaPath += `<path d="${posD}" fill="#34d399" opacity="0.1"/>`;
+    } else {
+      // All negative or no break-even
+      const allNegD = `M${x0},${yScale(-installCost)} ${pts.slice(1)} L${xEnd},${zeroY} L${x0},${zeroY} Z`;
+      areaPath += `<path d="${allNegD}" fill="#f87171" opacity="0.08"/>`;
+    }
+
+    // ── Phase labels ──
+    let phaseLabels = '';
+    if (withinLifetime && paybackYear > 2) {
+      const midNegX = xScale(paybackYear / 2);
+      phaseLabels += `<text x="${midNegX}" y="${padT + 10}" text-anchor="middle" font-size="8" fill="#f87171" opacity="0.7">Cost phase</text>`;
+      if (lifetimeYears - paybackYear > 2) {
+        const midPosX = xScale((paybackYear + lifetimeYears) / 2);
+        phaseLabels += `<text x="${midPosX}" y="${padT + 10}" text-anchor="middle" font-size="8" fill="#34d399" opacity="0.7">Profit phase</text>`;
+      }
+    }
+
+    // ── Break-even marker ──
+    let breakEvenMark = '';
+    if (withinLifetime) {
+      const bx = xScale(paybackYear);
+      breakEvenMark += `<line x1="${bx}" y1="${padT}" x2="${bx}" y2="${H - padB}"
+        stroke="#f6c90e" stroke-width="1" stroke-dasharray="3,3" opacity="0.6"/>`;
+      breakEvenMark += `<circle cx="${bx}" cy="${zeroY}" r="5" fill="#f6c90e" stroke="#0f1117" stroke-width="1.5"/>`;
+      breakEvenMark += `<text x="${bx}" y="${H - 6}" text-anchor="middle" font-size="8" fill="#f6c90e" font-weight="700">${paybackYear.toFixed(1)}yr</text>`;
+    }
+
+    // ── Axis labels ──
+    const axisLabels = `
+      <text x="${padL - 4}" y="${padT - 4}" text-anchor="end" font-size="8" fill="#475569">€</text>
+      <text x="${W - padR}" y="${H - 6}" text-anchor="end" font-size="8" fill="#475569">years</text>
+    `;
+
+    svg.innerHTML = areaPath + gridLines + xLabels + axisLabels + phaseLabels +
+      `<path d="${pts}" fill="none" stroke="#60a5fa" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>` +
+      breakEvenMark;
+  }
+
+  // ── PANEL COLORS ─────────────────────────────────────────────────────────
+  function panelGradientColor(kwh) {
+    // orange → green gradient based on kWh/yr output
+    const t = Math.min(1, Math.max(0, kwh / 650));
+    const r = Math.round(249 + (34  - 249) * t);
+    const g = Math.round(115 + (197 - 115) * t);
+    const b = Math.round(22  + (94  - 22)  * t);
+    return `rgb(${r},${g},${b})`;
+  }
+
+  let selectedPoly = null;
+
+  // ── BUILD SEG OFFSETS ─────────────────────────────────────────────────────
+  function buildSegOffsets() {
+    if (!solarData) return {};
+    const sp = solarData.solarPotential;
+    const allPanels = sp.solarPanels || [];
+    const segments = sp.roofSegmentStats || [];
+    const offsets = {};
+    segments.forEach((seg, si) => {
+      if (!seg.boundingBox) return;
+      const bb = seg.boundingBox;
+      const bbCLat = (bb.sw.latitude + bb.ne.latitude) / 2;
+      const bbCLng = (bb.sw.longitude + bb.ne.longitude) / 2;
+      const segPanels = allPanels.filter(p => p.segmentIndex === si);
+      if (!segPanels.length) return;
+      const pCLat = segPanels.reduce((s, p) => s + p.center.latitude,  0) / segPanels.length;
+      const pCLng = segPanels.reduce((s, p) => s + p.center.longitude, 0) / segPanels.length;
+      offsets[si] = { dLat: bbCLat - pCLat, dLng: bbCLng - pCLng };
+    });
+    return offsets;
+  }
+
+  // ── DRAW PANELS ───────────────────────────────────────────────────────────
+  // Redraws all panels according to current segPanelCounts.
+  // Constrains panels to roof segment polygons with 20cm inward margin.
+  function redrawPanels(skipClear = false) {
+    if (!skipClear) {
+      clearPanelOverlays();
+    }
+    if (!solarData) return;
+    // Reset bounding box for rotate icon
+    arrayBounds = { minLat: Infinity, maxLat: -Infinity, minLng: Infinity, maxLng: -Infinity };
+    const sp       = solarData.solarPotential;
+    const allPanels = sp.solarPanels || [];
+    const segments  = sp.roofSegmentStats || [];
+    const pW = sp.panelWidthMeters  || 1.045;
+    const pH = sp.panelHeightMeters || 1.879;
+    const marginMeters = 0.20; // 20cm inward margin to avoid edge spillover
+
+    // Build roof segment polygons with inset margin for constraint checking
+    const segPolygons = {};
+    segments.forEach((seg, si) => {
+      if (!seg.boundingBox) return;
+      // Use segment outline if available, otherwise use bounding box
+      let paths = seg.outline ? seg.outline.map(pt => ({ lat: pt.latitude, lng: pt.longitude })) : [
+        { lat: seg.boundingBox.ne.latitude, lng: seg.boundingBox.sw.longitude },
+        { lat: seg.boundingBox.ne.latitude, lng: seg.boundingBox.ne.longitude },
+        { lat: seg.boundingBox.sw.latitude, lng: seg.boundingBox.ne.longitude },
+        { lat: seg.boundingBox.sw.latitude, lng: seg.boundingBox.sw.longitude },
+      ];
+      // Apply inward margin
+      segPolygons[si] = insetPolygon(paths, marginMeters);
+    });
+
+    // Per-segment offset: align panel centroid to segment bounding-box centre
+    const segOffsets = buildSegOffsets();
+
+    // Calculate azimuth per segment once (always use segment average or API azimuth)
+    const segmentAzimuths = {};
+    segments.forEach((seg, si) => {
+      segmentAzimuths[si] = segmentAverageAzimuths[si] || seg.azimuthDegrees;
+    });
+
+    // Use raw API panel coordinates directly — the API already places each panel
+    // accurately on the roof. Snapping to an integer grid drifts panels off the
+    // actual roof surface visible in the satellite image.
+    const sortedPanels = [...allPanels].sort((a, b) => {
+      if (a.segmentIndex !== b.segmentIndex) return a.segmentIndex - b.segmentIndex;
+      const latDiff = b.center.latitude - a.center.latitude;
+      if (Math.abs(latDiff) > 1e-8) return latDiff;
+      return a.center.longitude - b.center.longitude;
+    });
+
+    // Track how many panels we've drawn per segment to respect the count cap
+    const drawn = {};
+    let panelNum = 0;
+
+    // First pass: identify which panels will actually be drawn and calculate centroid
+    let totalLat = 0, totalLng = 0, visibleCount = 0;
+    const panelsToDraw = [];
+
+    sortedPanels.forEach(p => {
+      const si = p.segmentIndex;
+      const limit = segPanelCounts[si] || 0;
+      drawn[si] = (drawn[si] || 0) + 1;
+      if (drawn[si] > limit) return;
+
+      panelNum++;
+      if (excludedPanels.has(panelNum)) return;
+
+      const center = { lat: p.center.latitude, lng: p.center.longitude };
+      panelsToDraw.push({ panel: p, panelNum, segmentIndex: si, center });
+
+      totalLat += center.lat;
+      totalLng += center.lng;
+      visibleCount++;
+    });
+
+    if (visibleCount > 0) {
+      arrayCentroid = { lat: totalLat / visibleCount, lng: totalLng / visibleCount };
+    }
+
+    // Draw panels using API coordinates, rotated to each segment's azimuth
+    panelsToDraw.forEach(({ panel: p, panelNum: pNum, segmentIndex: si, center }) => {
+      const seg = segments[si];
+
+      // Use each segment's own azimuth to respect their individual orientations
+      const segmentAzimuth = seg.azimuthDegrees;
+      const azRad = segmentAzimuth * Math.PI / 180;
+      const azCos = Math.cos(azRad);
+      const azSin = Math.sin(azRad);
+
+      // Calculate corners from panel dimensions, rotated to azimuth.
+      // Work in meters first, then convert to lat/lng after rotation.
+      const mPerLat = 111320;
+      const mPerLng = 111320 * Math.cos(center.lat * Math.PI / 180);
+
+      // Azimuth = downslope direction (v axis). u axis = across the roof (left-right).
+      // Landscape: long side (pH) runs ACROSS azimuth (u), short side (pW) runs downslope (v).
+      // Portrait:  short side (pW) runs ACROSS azimuth (u), long side (pH) runs downslope (v).
+      const isLandscape = p.orientation === 'LANDSCAPE';
+      const halfU = (isLandscape ? pH : pW) / 2;  // meters across azimuth (left-right)
+      const halfV = (isLandscape ? pW : pH) / 2;  // meters along azimuth (downslope)
+
+      // Corners in panel-local meters: u = across roof, v = downslope
+      const localCorners = [
+        { u: -halfU, v: -halfV },
+        { u:  halfU, v: -halfV },
+        { u:  halfU, v:  halfV },
+        { u: -halfU, v:  halfV },
+      ];
+
+      // Rotate from panel frame into geographic frame.
+      // Azimuth is the downslope direction (clockwise from North).
+      // v runs ALONG azimuth (downslope), u runs ACROSS (left-right on the roof).
+      //   dLat =  v·cos(az) - u·sin(az)
+      //   dLng =  v·sin(az) + u·cos(az)
+      let corners = localCorners.map(({ u, v }) => ({
+        lat: center.lat + (v * azCos - u * azSin) / mPerLat,
+        lng: center.lng + (v * azSin + u * azCos) / mPerLng,
+      }));
+
+      // Apply user-defined array transformations (rotation and offset)
+      if (panelArrayRotation !== 0 || panelArrayOffset.dLat !== 0 || panelArrayOffset.dLng !== 0) {
+        if (panelArrayRotation !== 0) {
+          // Rotate in metre-space around the array centroid to avoid lat/lng distortion.
+          const rad = panelArrayRotation * Math.PI / 180;
+          const rCos = Math.cos(rad);
+          const rSin = Math.sin(rad);
+          const cLat = arrayCentroid.lat;
+          const cLng = arrayCentroid.lng;
+          const mPerLatC = 111320;
+          const mPerLngC = 111320 * Math.cos(cLat * Math.PI / 180);
+          corners = corners.map(pt => {
+            // Convert offset to metres
+            const my = (pt.lat - cLat) * mPerLatC;
+            const mx = (pt.lng - cLng) * mPerLngC;
+            // Rotate
+            const ry = my * rCos - mx * rSin;
+            const rx = mx * rCos + my * rSin;
+            // Back to lat/lng
+            return {
+              lat: cLat + ry / mPerLatC,
+              lng: cLng + rx / mPerLngC,
+            };
+          });
+        }
+        if (panelArrayOffset.dLat !== 0 || panelArrayOffset.dLng !== 0) {
+          corners = corners.map(pt => ({
+            lat: pt.lat + panelArrayOffset.dLat,
+            lng: pt.lng + panelArrayOffset.dLng
+          }));
+        }
+      }
+
+      // Check roof polygon constraint (use snapped center)
+      const roofPoly = segPolygons[si];
+      if (roofPoly && !pointInPolygon(center, roofPoly) && (panelArrayOffset.dLat === 0 && panelArrayOffset.dLng === 0 && panelArrayRotation === 0)) {
+        return;
+      }
+
+      // Track bounding box for rotate icon placement
+      corners.forEach(c => {
+        if (c.lat < arrayBounds.minLat) arrayBounds.minLat = c.lat;
+        if (c.lat > arrayBounds.maxLat) arrayBounds.maxLat = c.lat;
+        if (c.lng < arrayBounds.minLng) arrayBounds.minLng = c.lng;
+        if (c.lng > arrayBounds.maxLng) arrayBounds.maxLng = c.lng;
+      });
+
+      const gradColor = panelGradientColor(p.yearlyEnergyDcKwh);
+
+      const poly = new google.maps.Polygon({
+        paths: corners,
+        map: map,
+        fillColor: gradColor,
+        fillOpacity: 0.88,
+        strokeColor: '#000000',
+        strokeWeight: 0.5,
+        clickable: true,
+        zIndex: 1,
+      });
+      poly._gradColor = gradColor;
+
+      poly.addListener('mouseover', () => { map.setOptions({ draggableCursor: 'grab' }); showRotateIcon(); });
+      poly.addListener('mouseout',  () => { map.setOptions({ draggableCursor: '' });     hideRotateIcon(); });
+      poly.addListener('mousedown', (e) => {
+        startRoofArrayDrag(e.domEvent, poly, p, pNum, seg);
+      });
+
+      overlays.panels.push(poly);
+    });
+
+    updateOverlayVisibility();
+    updateRotateIcon();
+  }
+
+  function showPanelInfo(p, num, seg) {
+    const dirs = deg => { const d=['N','NE','E','SE','S','SW','W','NW']; return d[Math.round(deg/45)%8]; };
+    const panelAzimuth = segmentAverageAzimuths[p.segmentIndex] || seg.azimuthDegrees;
+    const dir = dirs(panelAzimuth);
+    const pitch = seg ? `${seg.pitchDegrees.toFixed(1)}°` : '—';
+    const orientation = p.orientation || '—';
+    const html = `<div style="display:flex;flex-direction:column;gap:6px;align-items:center">
+      <span style="font-weight:700;color:#f6c90e;font-size:14px">Panel #${num}</span>
+      <span style="color:#94a3b8;font-size:12px">${dir} facing, ${pitch} pitch</span>
+      <span style="color:#94a3b8;font-size:12px">Azimuth: ${panelAzimuth.toFixed(0)}°</span>
+      <span style="color:#94a3b8;font-size:12px">Orientation: ${orientation}</span>
+      <span style="color:#a0aec0;font-size:12px">${p.yearlyEnergyDcKwh.toFixed(1)} kWh/yr</span>
+    </div>`;
+    showMapOverlay(html, num);
+  }
+
+  function showMapOverlay(html, panelNum) {
+    // Remove old element if exists to ensure fresh creation
+    let el = document.getElementById('map-overlay-bar');
+    if (el) {
+      el.remove();
+    }
+
+    // Create new element
+    el = document.createElement('div');
+    el.id = 'map-overlay-bar';
+    el.style.cssText = `
+      position:fixed !important;
+      bottom:20px !important;
+      left:50% !important;
+      transform:translateX(-50%) !important;
+      z-index:10000 !important;
+      background:rgba(26,29,39,0.98) !important;
+      border:2px solid #2d3148 !important;
+      border-radius:12px !important;
+      padding:16px 20px !important;
+      font-family:sans-serif !important;
+      font-size:13px !important;
+      color:#e2e8f0 !important;
+      box-shadow:0 4px 20px rgba(0,0,0,0.9) !important;
+      display:flex !important;
+      flex-direction:row !important;
+      align-items:center !important;
+      gap:16px !important;
+      max-width:90vw !important;
+      text-align:center !important;
+      visibility:visible !important;
+      opacity:1 !important;
+      pointer-events:auto !important;
+    `;
+
+    el.innerHTML = html;
+    document.body.appendChild(el);
+
+    // Close when clicking outside the card
+    const closeHandler = () => {
+      if (selectedPoly) {
+        selectedPoly.setOptions({ fillOpacity: 0.88, strokeColor: '#000000', strokeWeight: 0.5, zIndex: 1 });
+        selectedPoly = null;
+      }
+      hideMapOverlay();
+      hideColorLegend();
+    };
+
+    // Close on map click
+    if (map && !map._panelInfoClickListener) {
+      map._panelInfoClickListener = map.addListener('click', closeHandler);
+    }
+  }
+
+  function hideMapOverlay() {
+    const el = document.getElementById('map-overlay-bar');
+    if (el) el.remove();
+  }
+
+  // ── COLOR SCALE LEGEND (shown only when a panel is selected) ─────────────
+  function showColorLegend() {
+    let el = document.getElementById('color-legend');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'color-legend';
+      el.style.cssText = `
+        position:absolute; right:12px; top:50%; transform:translateY(-50%);
+        z-index:100; background:rgba(26,29,39,0.90); border:1px solid #2d3148;
+        border-radius:10px; padding:10px 8px; display:flex; flex-direction:column;
+        align-items:center; gap:4px; box-shadow:0 4px 16px rgba(0,0,0,0.5);
+        font-family:sans-serif;
+      `;
+      // Build gradient bar: green (high) at top → orange (low) at bottom
+      el.innerHTML = `
+        <div style="font-size:9px;color:#94a3b8;margin-bottom:2px">650</div>
+        <div style="width:14px;height:120px;border-radius:4px;
+          background:linear-gradient(to bottom,
+            rgb(34,197,94) 0%,
+            rgb(132,156,58) 40%,
+            rgb(220,135,10) 70%,
+            rgb(249,115,22) 100%)">
+        </div>
+        <div style="font-size:9px;color:#94a3b8;margin-top:2px">0</div>
+        <div style="font-size:8px;color:#64748b;margin-top:4px;writing-mode:vertical-rl;
+          transform:rotate(180deg);letter-spacing:0.05em">kWh/yr</div>
+      `;
+      document.getElementById('map').appendChild(el);
+    }
+    el.style.display = 'flex';
+  }
+
+  function hideColorLegend() {
+    const el = document.getElementById('color-legend');
+    if (el) el.style.display = 'none';
+  }
+
+  function showArraySummary() {
+    if (!solarData) return;
+    const sp = solarData.solarPotential;
+    const allPanels = sp.solarPanels || [];
+    const price = parseFloat(document.getElementById('price-per-kwh').value) || 0.28;
+    const eff   = (parseFloat(document.getElementById('efficiency').value) || 80) / 100;
+
+    const shownBySegment = {};
+    Object.entries(segPanelCounts).forEach(([si, cnt]) => { shownBySegment[si] = cnt; });
+    const segCursor = {};
+    let totalKwh = 0, totalPanels = 0;
+    allPanels.forEach(p => {
+      const si = p.segmentIndex;
+      const limit = shownBySegment[si] || 0;
+      segCursor[si] = (segCursor[si] || 0) + 1;
+      if (segCursor[si] <= limit) {
+        totalKwh += p.yearlyEnergyDcKwh;
+        totalPanels++;
+      }
+    });
+
+    const kwhYear = totalKwh * eff;
+    const annual  = kwhYear * price;
+    const installCost = totalPanels * 300 + 1500;
+    const paybackYear = annual > 0 ? installCost / annual : null;
+    const withinLife  = paybackYear !== null && paybackYear <= sp.panelLifetimeYears;
+
+    let el = document.getElementById('array-summary-panel');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'array-summary-panel';
+      document.body.appendChild(el);
+    }
+
+    el.innerHTML = `
+      <div class="array-summary-title">Array Summary</div>
+      <div class="array-summary-item">
+        <span class="array-summary-label">Total Output:</span>
+        <span class="array-summary-value">${kwhYear.toLocaleString('en', { maximumFractionDigits: 0 })} kWh/yr</span>
+      </div>
+      <div class="array-summary-item">
+        <span class="array-summary-label">Annual Savings:</span>
+        <span class="array-summary-value">€${annual.toLocaleString('en', { maximumFractionDigits: 0 })}</span>
+      </div>
+      <div class="array-summary-item">
+        <span class="array-summary-label">Panels:</span>
+        <span class="array-summary-value">${totalPanels}</span>
+      </div>
+      <div class="array-summary-item">
+        <span class="array-summary-label">ROI:</span>
+        <span class="array-summary-value">${withinLife ? `${paybackYear.toFixed(1)} yrs` : `>${sp.panelLifetimeYears} yrs`}</span>
+      </div>
+    `;
+  }
+
+  function hideArraySummary() {
+    const el = document.getElementById('array-summary-panel');
+    if (el) el.remove();
+  }
+
+  function showSegmentSummary(segmentIndex) {
+    if (!solarData || segmentIndex === null) {
+      hideSegmentSummary();
+      return;
+    }
+
+    const sp = solarData.solarPotential;
+    const segments = sp.roofSegmentStats || [];
+    if (segmentIndex < 0 || segmentIndex >= segments.length) {
+      hideSegmentSummary();
+      return;
+    }
+
+    const seg = segments[segmentIndex];
+    const dir = dirLabel(seg.azimuthDegrees);
+    const azimuth = seg.azimuthDegrees.toFixed(0);
+    const pitch = seg.pitchDegrees.toFixed(1);
+    const area = seg.stats.areaMeters2.toFixed(1);
+    const maxSun = Math.max(...seg.stats.sunshineQuantiles).toFixed(0);
+    const panelCount = (segPanelCounts[segmentIndex] || 0);
+    const segPanels = (solarData.solarPotential.solarPanels || []).filter(p => p.segmentIndex === segmentIndex);
+    const maxPanels = segPanels.length;
+
+    // Determine dominant orientation for this segment's panels
+    const portraitCount  = segPanels.filter(p => p.orientation === 'PORTRAIT').length;
+    const landscapeCount = segPanels.filter(p => p.orientation === 'LANDSCAPE').length;
+    const dominantOrientation = portraitCount >= landscapeCount ? 'PORTRAIT' : 'LANDSCAPE';
+
+    // Build a compass arrow showing the azimuth direction (downslope / panel facing direction)
+    const az = seg.azimuthDegrees;
+    const arrowDirs = [
+      { label: 'N',  deg: 0   }, { label: 'NE', deg: 45  },
+      { label: 'E',  deg: 90  }, { label: 'SE', deg: 135 },
+      { label: 'S',  deg: 180 }, { label: 'SW', deg: 225 },
+      { label: 'W',  deg: 270 }, { label: 'NW', deg: 315 },
+    ];
+    // Unicode arrows for 8 compass directions
+    const arrowGlyphs = { N:'↑', NE:'↗', E:'→', SE:'↘', S:'↓', SW:'↙', W:'←', NW:'↖' };
+    const closestDir = arrowDirs.reduce((best, d) => {
+      const diff = Math.abs(((az - d.deg) + 360) % 360);
+      const wrap = Math.min(diff, 360 - diff);
+      return wrap < best.diff ? { label: d.label, diff: wrap } : best;
+    }, { label: 'S', diff: 999 }).label;
+    const arrowGlyph = arrowGlyphs[closestDir];
+
+    // Panel visual note
+    // Portrait:  tall side (1.879m) runs downslope (along azimuth), short side (1.045m) across
+    // Landscape: long side (1.879m) runs across azimuth, short side (1.045m) downslope
+    const isPortrait = dominantOrientation === 'PORTRAIT';
+    const acrossSize  = isPortrait ? '1.045m' : '1.879m';
+    const downslopeSize = isPortrait ? '1.879m' : '1.045m';
+    const orientNote = isPortrait
+      ? 'Tall side downslope, short side across'
+      : 'Long side across roof, short side downslope';
+
+    let el = document.getElementById('segment-summary-panel');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'segment-summary-panel';
+      document.body.appendChild(el);
+    }
+
+    el.innerHTML = `
+      <div class="segment-summary-title">Roof Segment ${segmentIndex + 1}</div>
+      <div class="segment-summary-item">
+        <span class="segment-summary-label">Direction:</span>
+        <span class="segment-summary-value">${dir} ${arrowGlyph}</span>
+      </div>
+      <div class="segment-summary-item">
+        <span class="segment-summary-label">Azimuth:</span>
+        <span class="segment-summary-value">${azimuth}°</span>
+      </div>
+      <div class="segment-summary-item">
+        <span class="segment-summary-label">Pitch:</span>
+        <span class="segment-summary-value">${pitch}°</span>
+      </div>
+      <div class="segment-summary-item">
+        <span class="segment-summary-label">Area:</span>
+        <span class="segment-summary-value">${area} m²</span>
+      </div>
+      <div class="segment-summary-item">
+        <span class="segment-summary-label">Max Sunshine:</span>
+        <span class="segment-summary-value">${maxSun} kWh</span>
+      </div>
+      <div class="segment-summary-item">
+        <span class="segment-summary-label">Panels:</span>
+        <span class="segment-summary-value">${panelCount}/${maxPanels}</span>
+      </div>
+      <div style="margin-top:8px !important; padding-top:8px !important; border-top:1px solid #334155 !important;">
+        <div style="font-size:11px !important; font-weight:700 !important; color:#a78bfa !important; text-transform:uppercase !important; letter-spacing:0.05em !important; margin-bottom:6px !important;">Panel Orientation</div>
+        <div style="font-size:11px !important; color:#94a3b8 !important; margin-bottom:4px !important;">${dominantOrientation} — ${orientNote}</div>
+        <div style="font-size:11px !important; color:#94a3b8 !important; margin-bottom:4px !important;">
+          ${arrowGlyph} Downslope (${dir}): <span style="color:#34d399 !important">${downslopeSize}</span>
+        </div>
+        <div style="font-size:11px !important; color:#94a3b8 !important; margin-bottom:6px !important;">
+          ↔ Across roof: <span style="color:#34d399 !important">${acrossSize}</span>
+        </div>
+        <div style="font-size:10px !important; color:#64748b !important; line-height:1.4 !important;">
+          Panels face ${dir} (${azimuth}°) at ${pitch}° slope.<br>
+          The ${arrowGlyph} arrow on the map shows the downslope / facing direction.
+        </div>
+      </div>
+    `;
+
+    // Add close handler: clicking the panel closes it, and clicking elsewhere also closes it
+    el.onclick = (e) => {
+      e.stopPropagation();
+      hideSegmentSummary();
+      selectedSegmentIndex = null;
+      if (solarData && solarData.solarPotential) {
+        renderSteppers(solarData.solarPotential.roofSegmentStats, panelsBySegment);
+      }
+    };
+
+    if (map && !map._segmentSummaryClickListener) {
+      map._segmentSummaryClickListener = map.addListener('click', () => {
+        hideSegmentSummary();
+        selectedSegmentIndex = null;
+        if (solarData && solarData.solarPotential) {
+          renderSteppers(solarData.solarPotential.roofSegmentStats, panelsBySegment);
+        }
+      });
+    }
+  }
+
+  function hideSegmentSummary() {
+    const el = document.getElementById('segment-summary-panel');
+    if (el) el.remove();
+  }
+
+  function rotatedRect(center, wM, hM, azimuthDeg) {
+    const latM = 1 / 111320;
+    const lngM = 1 / (111320 * Math.cos(center.lat * Math.PI / 180));
+    const rad = azimuthDeg * Math.PI / 180;
+    const cosA = Math.cos(rad), sinA = Math.sin(rad);
+    const hw = wM / 2, hh = hM / 2;
+    return [
+      { dN:  hh * cosA - hw * sinA,  dE:  hh * sinA + hw * cosA },
+      { dN:  hh * cosA + hw * sinA,  dE:  hh * sinA - hw * cosA },
+      { dN: -hh * cosA + hw * sinA,  dE: -hh * sinA - hw * cosA },
+      { dN: -hh * cosA - hw * sinA,  dE: -hh * sinA + hw * cosA },
+    ].map(({ dN, dE }) => ({
+      lat: center.lat + dN * latM,
+      lng: center.lng + dE * lngM,
+    }));
+  }
+
+  // ── SOLAR FLUX HEATMAP ────────────────────────────────────────────────────
+  async function drawFluxOverlay(data) {
+    if (overlays.flux) { overlays.flux.setMap(null); overlays.flux = null; }
+
+    const GT = window.GeoTIFF;
+    if (!GT || typeof GT.fromArrayBuffer !== 'function') {
+      console.error('[Flux] GeoTIFF.js not loaded');
+      return;
+    }
+
+    const c = data.center;
+    const layerUrl = `https://solar.googleapis.com/v1/dataLayers:get`
+      + `?location.latitude=${c.latitude}&location.longitude=${c.longitude}`
+      + `&radiusMeters=100&view=FULL_LAYERS&requiredQuality=LOW&key=${API_KEY}`;
+
+    let layerData;
+    try {
+      const resp = await fetch(layerUrl);
+      if (!resp.ok) { console.warn('[Flux] dataLayers error:', await resp.json().catch(() => ({}))); return; }
+      layerData = await resp.json();
+    } catch (e) { console.warn('[Flux] fetch error', e); return; }
+
+    const fluxUrl = layerData.annualFluxUrl;
+    const maskUrl = layerData.maskUrl;
+    if (!fluxUrl) { console.warn('[Flux] no annualFluxUrl'); return; }
+    if (!maskUrl) { console.warn('[Flux] no maskUrl'); return; }
+
+    const addKey = url => url.includes('key=') ? url : url + `&key=${API_KEY}`;
+    let fluxBuf, maskBuf;
+    try {
+      [fluxBuf, maskBuf] = await Promise.all([
+        fetch(addKey(fluxUrl)).then(r => { if (!r.ok) throw new Error('flux ' + r.status); return r.arrayBuffer(); }),
+        fetch(addKey(maskUrl)).then(r => { if (!r.ok) throw new Error('mask ' + r.status); return r.arrayBuffer(); }),
+      ]);
+    } catch (e) { console.warn('[Flux] tiff fetch error', e); return; }
+
+    let fluxPixels, maskPixels, width, height, imageBounds;
+    try {
+      const [fluxTiff, maskTiff] = await Promise.all([
+        GT.fromArrayBuffer(fluxBuf),
+        GT.fromArrayBuffer(maskBuf),
+      ]);
+      const fluxImg = await fluxTiff.getImage();
+      const maskImg = await maskTiff.getImage();
+      width  = fluxImg.getWidth();
+      height = fluxImg.getHeight();
+
+      const [fluxRasters, maskRasters] = await Promise.all([
+        fluxImg.readRasters(),
+        maskImg.readRasters(),
+      ]);
+      fluxPixels = fluxRasters[0];
+      maskPixels = maskRasters[0];
+
+      const origin = fluxImg.getOrigin();
+      const res    = fluxImg.getResolution();
+      const xWest  = origin[0];
+      const yNorth = origin[1];
+      const xEast  = xWest  + res[0] * width;
+      const ySouth = yNorth + res[1] * height;
+
+      function mercatorToLatLng(x, y) {
+        const lng = (x / 20037508.34) * 180;
+        const lat = (Math.atan(Math.exp((y / 20037508.34) * Math.PI)) * 360 / Math.PI) - 90;
+        return { lat, lng };
+      }
+
+      let sw, ne;
+      if (Math.abs(xWest) > 1000) {
+        sw = mercatorToLatLng(xWest, ySouth);
+        ne = mercatorToLatLng(xEast, yNorth);
+      } else {
+        sw = { lat: ySouth, lng: xWest };
+        ne = { lat: yNorth, lng: xEast };
+      }
+
+      imageBounds = new google.maps.LatLngBounds(
+        new google.maps.LatLng(sw.lat, sw.lng),
+        new google.maps.LatLng(ne.lat, ne.lng)
+      );
+    } catch (e) { console.error('[Flux] decode error:', e); return; }
+
+    function heatColor(t) {
+      t = Math.max(0, Math.min(1, t));
+      const stops = [
+        [0,    [100,   0,   0]],
+        [0.4,  [180,  30,   0]],
+        [0.7,  [220,  100,  0]],
+        [1.0,  [255,  220,  0]],
+      ];
+      let lo = stops[0], hi = stops[stops.length - 1];
+      for (let i = 0; i < stops.length - 1; i++) {
+        if (t >= stops[i][0] && t <= stops[i+1][0]) { lo = stops[i]; hi = stops[i+1]; break; }
+      }
+      const s = hi[0] === lo[0] ? 0 : (t - lo[0]) / (hi[0] - lo[0]);
+      return [
+        Math.round(lo[1][0] + (hi[1][0] - lo[1][0]) * s),
+        Math.round(lo[1][1] + (hi[1][1] - lo[1][1]) * s),
+        Math.round(lo[1][2] + (hi[1][2] - lo[1][2]) * s),
+      ];
+    }
+
+    let min = Infinity, max = -Infinity;
+    for (let i = 0; i < fluxPixels.length; i++) {
+      if (!maskPixels[i]) continue;
+      const v = fluxPixels[i];
+      if (v < -1000 || isNaN(v)) continue;
+      if (v < min) min = v;
+      if (v > max) max = v;
+    }
+    const range = max - min || 1;
+
+    const canvas = document.createElement('canvas');
+    canvas.width = width; canvas.height = height;
+    const ctx = canvas.getContext('2d');
+    const imgData = ctx.createImageData(width, height);
+
+    for (let i = 0; i < fluxPixels.length; i++) {
+      const idx = i * 4;
+      if (!maskPixels[i]) { imgData.data[idx + 3] = 0; continue; }
+      const v = fluxPixels[i];
+      if (v < -1000 || isNaN(v)) { imgData.data[idx + 3] = 0; continue; }
+      const [r, g, b] = heatColor((v - min) / range);
+      imgData.data[idx]     = r;
+      imgData.data[idx + 1] = g;
+      imgData.data[idx + 2] = b;
+      imgData.data[idx + 3] = 230;
+    }
+    ctx.putImageData(imgData, 0, 0);
+
+    const dataUrl = canvas.toDataURL('image/png');
+    overlays.flux = new google.maps.GroundOverlay(dataUrl, imageBounds, { opacity: 1.0, clickable: false });
+
+    overlays.flux.setMap(null); // flux overlay hidden by default
+  }
+
+  // ── ROOF BOUNDING BOX ─────────────────────────────────────────────────────
+  function drawRoofBbox(bbox) {
+    if (!bbox) return;
+    const corners = [
+      { lat: bbox.ne.latitude, lng: bbox.sw.longitude },
+      { lat: bbox.ne.latitude, lng: bbox.ne.longitude },
+      { lat: bbox.sw.latitude, lng: bbox.ne.longitude },
+      { lat: bbox.sw.latitude, lng: bbox.sw.longitude },
+    ];
+    const poly = new google.maps.Polygon({
+      paths: corners,
+      map: map,
+      fillColor: '#3b82f6',
+      fillOpacity: 0.06,
+      strokeColor: '#3b82f6',
+      strokeWeight: 2,
+      clickable: false,
+    });
+    overlays.roof.push(poly);
+  }
+
+  // ── DRAW ROOF POLYGONS PER SEGMENT ────────────────────────────────────────
+  // Draws actual roof footprints for each segment (when tog-roof is enabled)
+  function drawRoofSegments() {
+    if (!solarData) return;
+    const sp = solarData.solarPotential;
+    const segments = sp.roofSegmentStats || [];
+
+    segments.forEach((seg, si) => {
+      if (!seg.boundingBox) return;
+      // Use segment outline if available, otherwise use bounding box
+      const outline = seg.outline || null;
+      const paths = outline ? outline.map(pt => ({ lat: pt.latitude, lng: pt.longitude })) : [
+        { lat: seg.boundingBox.ne.latitude, lng: seg.boundingBox.sw.longitude },
+        { lat: seg.boundingBox.ne.latitude, lng: seg.boundingBox.ne.longitude },
+        { lat: seg.boundingBox.sw.latitude, lng: seg.boundingBox.ne.longitude },
+        { lat: seg.boundingBox.sw.latitude, lng: seg.boundingBox.sw.longitude },
+      ];
+
+      const poly = new google.maps.Polygon({
+        paths: paths,
+        map: map,
+        fillColor: '#8b5cf6',
+        fillOpacity: 0.08,
+        strokeColor: '#8b5cf6',
+        strokeWeight: 1.5,
+        clickable: false,
+      });
+      overlays.roof.push(poly);
+    });
+  }
+
+  // ── POLYGON BOUNDS ────────────────────────────────────────────────────────
+  // Gets the bounding box (min/max lat/lng) of a polygon
+  function polygonBounds(polygon) {
+    let minLat = Infinity, maxLat = -Infinity;
+    let minLng = Infinity, maxLng = -Infinity;
+    for (const pt of polygon) {
+      minLat = Math.min(minLat, pt.lat);
+      maxLat = Math.max(maxLat, pt.lat);
+      minLng = Math.min(minLng, pt.lng);
+      maxLng = Math.max(maxLng, pt.lng);
+    }
+    return { minLat, maxLat, minLng, maxLng };
+  }
+
+  // ── POINT IN POLYGON TEST ─────────────────────────────────────────────────
+  // Uses ray-casting algorithm to test if a point is inside a polygon
+  function pointInPolygon(point, polygon) {
+    const lat = point.lat, lng = point.lng;
+    let inside = false;
+    for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+      const xi = polygon[i].lat, yi = polygon[i].lng;
+      const xj = polygon[j].lat, yj = polygon[j].lng;
+      const intersect = ((yi > lng) !== (yj > lng)) && (lat < (xj - xi) * (lng - yi) / (yj - yi) + xi);
+      if (intersect) inside = !inside;
+    }
+    return inside;
+  }
+
+  // ── ROTATE TO ROOF COORDINATES ────────────────────────────────────────────
+  // Convert lat/lng point to 2D roof-aligned coordinates (meters)
+  // Origin at anchor point, x-axis along roof azimuth, y-axis perpendicular
+  function latLngToRoofCoords(point, anchor, azimuthDeg) {
+    const latM = 111320; // meters per degree latitude
+    const lngM = 111320 * Math.cos(anchor.lat * Math.PI / 180); // meters per degree longitude
+
+    const dLat = (point.lat - anchor.lat) * latM;
+    const dLng = (point.lng - anchor.lng) * lngM;
+
+    const azRad = azimuthDeg * Math.PI / 180;
+    const cosAz = Math.cos(azRad), sinAz = Math.sin(azRad);
+
+    // Rotate to align with azimuth
+    const x = dLng * cosAz + dLat * sinAz;   // along azimuth
+    const y = -dLng * sinAz + dLat * cosAz;  // perpendicular
+
+    return { x, y };
+  }
+
+  // ── ROTATE FROM ROOF COORDINATES ──────────────────────────────────────────
+  // Convert 2D roof-aligned coordinates (meters) back to lat/lng
+  function roofCoordsToLatLng(roofCoords, anchor, azimuthDeg) {
+    const latM = 111320;
+    const lngM = 111320 * Math.cos(anchor.lat * Math.PI / 180);
+
+    const azRad = azimuthDeg * Math.PI / 180;
+    const cosAz = Math.cos(azRad), sinAz = Math.sin(azRad);
+
+    // Inverse rotation
+    const dLng = roofCoords.x * cosAz - roofCoords.y * sinAz;
+    const dLat = roofCoords.x * sinAz + roofCoords.y * cosAz;
+
+    return {
+      lat: anchor.lat + dLat / latM,
+      lng: anchor.lng + dLng / lngM
+    };
+  }
+
+  // ── INSET POLYGON BY MARGIN ───────────────────────────────────────────────
+  // Shrinks a polygon inward by a given margin (in meters, converted to lat/lng)
+  function insetPolygon(polygon, marginMeters) {
+    if (polygon.length < 3) return polygon;
+
+    // Rough conversion: 1 degree ≈ 111,000 meters at equator
+    const marginDeg = marginMeters / 111000;
+
+    const inset = [];
+    for (let i = 0; i < polygon.length; i++) {
+      const prev = polygon[(i - 1 + polygon.length) % polygon.length];
+      const curr = polygon[i];
+      const next = polygon[(i + 1) % polygon.length];
+
+      // Vector from prev to curr
+      const v1lat = curr.lat - prev.lat, v1lng = curr.lng - prev.lng;
+      const len1 = Math.sqrt(v1lat * v1lat + v1lng * v1lng);
+      const n1lat = len1 > 0 ? -v1lng / len1 : 0, n1lng = len1 > 0 ? v1lat / len1 : 0;
+
+      // Vector from curr to next
+      const v2lat = next.lat - curr.lat, v2lng = next.lng - curr.lng;
+      const len2 = Math.sqrt(v2lat * v2lat + v2lng * v2lng);
+      const n2lat = len2 > 0 ? -v2lng / len2 : 0, n2lng = len2 > 0 ? v2lat / len2 : 0;
+
+      // Average normal
+      const nAvgLat = (n1lat + n2lat) / 2;
+      const nAvgLng = (n1lng + n2lng) / 2;
+      const nAvgLen = Math.sqrt(nAvgLat * nAvgLat + nAvgLng * nAvgLng);
+
+      if (nAvgLen > 0) {
+        const scale = marginDeg / Math.max(nAvgLen, 0.001);
+        inset.push({
+          lat: curr.lat + nAvgLat * scale,
+          lng: curr.lng + nAvgLng * scale,
+        });
+      } else {
+        inset.push(curr);
+      }
+    }
+    return inset;
+  }
+
+  // ── COLOR SCALE LEGEND ────────────────────────────────────────────────────
+  function drawColorLegend() {
+    let el = document.getElementById('color-legend');
+    if (el) return;
+    el = document.createElement('div');
+    el.id = 'color-legend';
+    el.style.cssText = `
+      position:absolute; right:12px; top:50%; transform:translateY(-50%);
+      z-index:100; background:rgba(26,29,39,0.88); border:1px solid #2d3148;
+      border-radius:10px; padding:10px 8px; display:flex; flex-direction:column;
+      align-items:center; gap:4px; box-shadow:0 4px 16px rgba(0,0,0,0.4);
+      font-family:sans-serif;
+    `;
+    el.innerHTML = `
+      <div style="font-size:9px;color:#94a3b8;margin-bottom:2px">450</div>
+      <div style="width:14px;height:140px;border-radius:4px;background:linear-gradient(to bottom, rgb(34,197,94), rgb(249,115,22))"></div>
+      <div style="font-size:9px;color:#94a3b8;margin-top:2px">0</div>
+      <div style="font-size:8px;color:#64748b;margin-top:4px;writing-mode:vertical-rl;transform:rotate(180deg);letter-spacing:0.05em">kWh/yr</div>
+    `;
+    document.getElementById('map').appendChild(el);
+  }
+
+  // ── OVERLAY VISIBILITY ────────────────────────────────────────────────────
+  function updateOverlayVisibility() {
+    const showPanels = document.getElementById('tog-panels').checked;
+    const showRoof   = document.getElementById('tog-roof').checked;
+    overlays.panels.forEach(p => p.setMap(showPanels ? map : null));
+    overlays.roof.forEach(r => r.setMap(showRoof ? map : null));
+  }
+
+  // ── CLEAR ─────────────────────────────────────────────────────────────────
+  function clearOverlays() {
+    clearPanelOverlays();
+    overlays.roof.forEach(r => r.setMap(null));
+    overlays.roof = [];
+    if (overlays.flux) { overlays.flux.setMap(null); overlays.flux = null; }
+    clearLabelOverlays();
+
+    // Reset roof selection UI
+    selectingRoof = false;
+    const btn = document.getElementById('select-roof-btn');
+    if (btn) {
+      btn.classList.remove('active');
+    }
+    if (mapClickListener) {
+      mapClickListener.remove();
+      mapClickListener = null;
+    }
+    if (map) {
+      map.setOptions({ draggableCursor: '' });
+    }
+
+  }
+  function clearPanelOverlays(preserveInfo = false) {
+    overlays.panels.forEach(p => p.setMap(null));
+    overlays.panels = [];
+    selectedPoly = null;
+    if (!preserveInfo) {
+      hideMapOverlay();
+    }
+    hideColorLegend();
+    hideRotateIcon(true);
+  }
+  function clearLabelOverlays() {
+    overlays.labels = [];
+  }
+
+  // ── UTILS ─────────────────────────────────────────────────────────────────
+  function setStatus(msg, isError) {
+    const el = document.getElementById('status-msg');
+    el.textContent = msg;
+    el.className = isError ? 'error' : '';
+  }
+
+
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/geotiff@2.1.3/dist-browser/geotiff.js"></script>
+<script
+  src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDMpo4xVLbEj0G1l_9WaaDW4kTpIg7TZaw&libraries=places,geometry&callback=initMap"
+  async defer>
+</script>
+
+</body>
+</html>
