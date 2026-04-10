@@ -882,6 +882,11 @@
   let drawPolyRotation = 0; // degrees, applied around the centroid of the draw-zone panels
   let drawPolyBounds = { minLat: Infinity, maxLat: -Infinity, minLng: Infinity, maxLng: -Infinity };
   let drawRotateIconHideTimer = null;
+  let drawPolyRotating = false; // flag to suppress refill during rotation drag
+  let drawPolyVertexMarkers = []; // custom draggable vertex markers
+  let drawPolyEdgeMarkers = []; // custom clickable edge midpoint markers
+  let drawPolyAzimuth = null; // original azimuth (set on creation, doesn't change)
+  let drawPolyPitch = null; // pitch is fixed (set on creation, doesn't change)
 
   // ── MOBILE SIDEBAR TOGGLE ─────────────────────────────────────────────────
   document.getElementById('sidebar-toggle').addEventListener('click', () => {
@@ -1145,9 +1150,9 @@
         updateDrawPreview(e.latLng);
       });
 
-      drawPolyDblClickListener = map.addListener('dblclick', () => {
-        // dblclick fires one extra click before it — remove that spurious point
-        if (drawPolyPoints.length > 0) drawPolyPoints.pop();
+      drawPolyDblClickListener = map.addListener('dblclick', (e) => {
+        // dblclick fires one extra click before it — the spurious point is already added
+        // So we keep it as the final point and close the polygon
         closeDrawnPolygon();
       });
     } else {
@@ -1190,37 +1195,135 @@
       return;
     }
 
-    // Draw editable polygon — vertices can be dragged to reshape
+    // Draw polygon with custom vertex markers (not editable)
     drawPolyShape = new google.maps.Polygon({
       paths: drawPolyPoints.map(p => new google.maps.LatLng(p.lat, p.lng)),
       strokeColor: '#a78bfa',
       strokeWeight: 2,
-      strokeOpacity: 0.9,
+      strokeOpacity: 0,  // Hidden by default
       fillColor: '#7c3aed',
-      fillOpacity: 0.12,
-      editable: true,
+      fillOpacity: 0,    // Hidden by default
+      editable: false,
       draggable: false,
       map,
       zIndex: 5
     });
 
-    // Re-fill panels whenever a vertex is moved or added/removed
-    // Skip during move-drag (drawPolyMoveState set) to avoid feedback loop
-    const refill = () => {
-      if (drawPolyMoveState) return;
-      const path = drawPolyShape.getPath();
-      drawPolyPoints = [];
-      for (let i = 0; i < path.getLength(); i++) {
-        const pt = path.getAt(i);
-        drawPolyPoints.push({ lat: pt.lat(), lng: pt.lng() });
+    // Helper to show polygon
+    const showDrawPolygon = () => {
+      if (drawPolyShape) {
+        drawPolyShape.setOptions({
+          strokeOpacity: 0.9,
+          fillOpacity: 0.12,
+        });
+        showVertexMarkers();
       }
-      refreshDrawPanels();
     };
-    drawPolyShape.getPath().addListener('set_at', refill);
-    drawPolyShape.getPath().addListener('insert_at', refill);
-    drawPolyShape.getPath().addListener('remove_at', refill);
+
+    // Helper to hide polygon
+    const hideDrawPolygon = () => {
+      if (drawPolyShape) {
+        drawPolyShape.setOptions({
+          strokeOpacity: 0,
+          fillOpacity: 0,
+        });
+        hideVertexMarkers();
+      }
+    };
+
+    // Show polygon and vertex markers on hover
+    drawPolyShape.addListener('mouseover', showDrawPolygon);
+    drawPolyShape.addListener('mouseout', hideDrawPolygon);
+
+    // Detect hover near polygon using map mousemove
+    let nearPolygonHoverTimeout = null;
+    const onMapMouseMove = (e) => {
+      if (!drawPolyShape || !e.latLng) return;
+
+      const cursorLat = e.latLng.lat();
+      const cursorLng = e.latLng.lng();
+      const hoverThreshold = 0.00005; // ~5 meters at equator
+
+      // Check distance to polygon edges
+      let nearEdge = false;
+      for (let i = 0; i < drawPolyPoints.length; i++) {
+        const p1 = drawPolyPoints[i];
+        const p2 = drawPolyPoints[(i + 1) % drawPolyPoints.length];
+
+        const closest = closestPointOnSegment(
+          { lat: cursorLat, lng: cursorLng },
+          p1,
+          p2
+        );
+
+        const dist = Math.max(
+          Math.abs(closest.lat - cursorLat),
+          Math.abs(closest.lng - cursorLng)
+        );
+
+        if (dist < hoverThreshold) {
+          nearEdge = true;
+          break;
+        }
+      }
+
+      // Show polygon if near edge, hide otherwise
+      if (nearEdge) {
+        clearTimeout(nearPolygonHoverTimeout);
+        showDrawPolygon();
+      } else {
+        // Delay hide to prevent flickering
+        nearPolygonHoverTimeout = setTimeout(hideDrawPolygon, 100);
+      }
+    };
+
+    // Add map mousemove listener for near-hover detection
+    map.addListener('mousemove', onMapMouseMove);
+
+    // Add dblclick listener to polygon to insert vertex on edge
+    drawPolyShape.addListener('dblclick', (e) => {
+      if (!e.latLng) return;
+
+      // Find the nearest edge to the clicked point
+      const clickedLat = e.latLng.lat();
+      const clickedLng = e.latLng.lng();
+
+      let nearestEdgeIdx = -1;
+      let nearestDist = Infinity;
+      let nearestPoint = null;
+
+      // Check distance to each edge
+      for (let i = 0; i < drawPolyPoints.length; i++) {
+        const p1 = drawPolyPoints[i];
+        const p2 = drawPolyPoints[(i + 1) % drawPolyPoints.length];
+
+        // Find closest point on line segment p1-p2
+        const closest = closestPointOnSegment(
+          { lat: clickedLat, lng: clickedLng },
+          p1,
+          p2
+        );
+
+        const dist = Math.hypot(closest.lat - clickedLat, closest.lng - clickedLng);
+        if (dist < nearestDist) {
+          nearestDist = dist;
+          nearestEdgeIdx = i;
+          nearestPoint = closest;
+        }
+      }
+
+      // Insert new vertex after the nearest edge's start vertex
+      if (nearestEdgeIdx !== -1 && nearestPoint) {
+        drawPolyPoints.splice(nearestEdgeIdx + 1, 0, nearestPoint);
+        const path = drawPolyShape.getPath();
+        path.insertAt(nearestEdgeIdx + 1, new google.maps.LatLng(nearestPoint.lat, nearestPoint.lng));
+        refreshDrawPanels();
+        rebuildVertexMarkers();
+      }
+    });
 
     refreshDrawPanels();
+    rebuildVertexMarkers();
   }
 
   // Find the segment whose roof polygon contains the drawn polygon's centroid.
@@ -1257,6 +1360,10 @@
       drawPolyPoints = startPoints.map(p => ({ lat: p.lat + dLat, lng: p.lng + dLng }));
       const path = drawPolyShape.getPath();
       drawPolyPoints.forEach((p, i) => path.setAt(i, new google.maps.LatLng(p.lat, p.lng)));
+      // Update vertex marker positions during drag
+      drawPolyVertexMarkers.forEach((marker, i) => {
+        marker.setPosition(new google.maps.LatLng(drawPolyPoints[i].lat, drawPolyPoints[i].lng));
+      });
       if (!drawPolyMoveState._rafPending) {
         drawPolyMoveState._rafPending = true;
         requestAnimationFrame(() => { drawPolyMoveState._rafPending = false; refreshDrawPanels(); });
@@ -1269,6 +1376,7 @@
       document.removeEventListener('mouseup', onMouseUp);
       drawPolyMoveState = null;
       refreshDrawPanels();
+      rebuildVertexMarkers();
     };
 
     document.addEventListener('mousemove', onMouseMove);
@@ -1409,6 +1517,35 @@
     drawRotateIconHideTimer = setTimeout(() => { icon.style.opacity = '0'; }, 400);
   }
 
+  // Helper: update vertex marker positions to match drawPolyPoints
+  function updateVertexMarkerPositions() {
+    drawPolyVertexMarkers.forEach((marker, i) => {
+      if (i < drawPolyPoints.length) {
+        marker.setPosition(new google.maps.LatLng(drawPolyPoints[i].lat, drawPolyPoints[i].lng));
+      }
+    });
+  }
+
+  // Helper: returns drawPolyPoints rotated by drawPolyRotation around the polygon centroid
+  function getRotatedPolyPoints() {
+    if (drawPolyRotation === 0) return drawPolyPoints;
+    const centroid = polycentroid(drawPolyPoints);
+    const mPerLat = 111320;
+    const mPerLng = 111320 * Math.cos(centroid.lat * Math.PI / 180);
+    const rotRad = drawPolyRotation * Math.PI / 180;
+    const rotCos = Math.cos(rotRad);
+    const rotSin = Math.sin(rotRad);
+
+    return drawPolyPoints.map(p => {
+      const my = (p.lat - centroid.lat) * mPerLat;
+      const mx = (p.lng - centroid.lng) * mPerLng;
+      return {
+        lat: centroid.lat + (my * rotCos - mx * rotSin) / mPerLat,
+        lng: centroid.lng + (mx * rotCos + my * rotSin) / mPerLng,
+      };
+    });
+  }
+
   function startDrawRotateDrag(domEvent) {
     const icon = document.getElementById('draw-array-rotate-icon');
     if (icon) icon.classList.add('dragging');
@@ -1428,6 +1565,7 @@
     let rafPending = false;
 
     map.setOptions({ draggable: false, draggableCursor: 'grabbing' });
+    drawPolyRotating = true; // Flag to suppress refill listener updates
 
     const onMouseMove = (me) => {
       const angle    = Math.atan2(me.clientY - centScreenY, me.clientX - centScreenX);
@@ -1448,7 +1586,21 @@
       map.setOptions({ draggable: true, draggableCursor: '' });
       document.removeEventListener('mousemove', onMouseMove);
       document.removeEventListener('mouseup', onMouseUp);
+
+      // Commit rotation: apply rotation to drawPolyPoints permanently
+      const rotatedPoints = getRotatedPolyPoints();
+      drawPolyPoints = rotatedPoints;
+      drawPolyRotation = 0;
+      drawPolyRotating = false;
+
+      // Update polygon shape to show new point positions
+      if (drawPolyShape) {
+        const path = drawPolyShape.getPath();
+        drawPolyPoints.forEach((p, i) => path.setAt(i, new google.maps.LatLng(p.lat, p.lng)));
+      }
+
       refreshDrawPanels();
+      rebuildVertexMarkers();
       updateDrawRotateIcon();
     };
 
@@ -1579,29 +1731,42 @@
     drawPolyPanels.forEach(p => p.setMap(null));
     drawPolyPanels = [];
 
-    let azimuth = 180, pitch = 20, segIdx = null;
+    // Detect azimuth and pitch from nearest segment (only once on creation)
+    let azimuth = drawPolyAzimuth !== null ? drawPolyAzimuth : 180;
+    let pitch = drawPolyPitch !== null ? drawPolyPitch : 20;
+    let segIdx = null;
 
-    if (solarData && solarData.solarPotential) {
-      const centroid = polycentroid(drawPolyPoints);
-      const segments = solarData.solarPotential.roofSegmentStats || [];
-      const latM = 111320;
-      const lngM = 111320 * Math.cos(centroid.lat * Math.PI / 180);
+    // Detect azimuth and pitch on first polygon creation (don't change them later)
+    if (drawPolyAzimuth === null || drawPolyPitch === null) {
+      if (solarData && solarData.solarPotential) {
+        const centroid = polycentroid(drawPolyPoints);
+        const segments = solarData.solarPotential.roofSegmentStats || [];
+        const latM = 111320;
+        const lngM = 111320 * Math.cos(centroid.lat * Math.PI / 180);
 
-      // Always pick the segment whose center is nearest to the polygon centroid.
-      // bbox containment is unreliable when segment bboxes overlap.
-      let minDist = Infinity;
-      segments.forEach((seg, si) => {
-        const c = seg.center || {
-          latitude:  (seg.boundingBox.ne.latitude  + seg.boundingBox.sw.latitude)  / 2,
-          longitude: (seg.boundingBox.ne.longitude + seg.boundingBox.sw.longitude) / 2,
-        };
-        const d = Math.hypot(
-          (c.latitude  - centroid.lat) * latM,
-          (c.longitude - centroid.lng) * lngM
-        );
-        if (d < minDist) { minDist = d; azimuth = seg.azimuthDegrees; pitch = seg.pitchDegrees; segIdx = si; }
-      });
+        // Always pick the segment whose center is nearest to the polygon centroid.
+        // bbox containment is unreliable when segment bboxes overlap.
+        let minDist = Infinity;
+        segments.forEach((seg, si) => {
+          const c = seg.center || {
+            latitude:  (seg.boundingBox.ne.latitude  + seg.boundingBox.sw.latitude)  / 2,
+            longitude: (seg.boundingBox.ne.longitude + seg.boundingBox.sw.longitude) / 2,
+          };
+          const d = Math.hypot(
+            (c.latitude  - centroid.lat) * latM,
+            (c.longitude - centroid.lng) * lngM
+          );
+          if (d < minDist) { minDist = d; azimuth = seg.azimuthDegrees; pitch = seg.pitchDegrees; segIdx = si; }
+        });
+
+        // Save the detected values so they don't change on subsequent updates
+        if (drawPolyAzimuth === null) drawPolyAzimuth = azimuth;
+        if (drawPolyPitch === null) drawPolyPitch = pitch;
+      }
     }
+
+    // Azimuth stays the same - no extra rotation applied, polygon rotation is visual only
+    // azimuth = drawPolyAzimuth (already set above)
 
     // Hide the regular API panels while draw zone is active to avoid overlap
     overlays.panels.forEach(p => p.setMap(null));
@@ -1617,6 +1782,24 @@
     const totalKwh = count * avgKwhPerPanel;
     showDrawPolygonSummary(azimuth, pitch, count, segIdx, totalKwh);
     setStatus(`Draw Zone: ${count} panels`, false);
+
+    // Update polygon shape to show rotated outline during rotation drag
+    if (drawPolyShape && drawPolyRotation !== 0) {
+      const rotatedPoints = getRotatedPolyPoints();
+      const path = drawPolyShape.getPath();
+      // Suppress refill listener by setting drawPolyRotating flag
+      const wasRotating = drawPolyRotating;
+      drawPolyRotating = true;
+      rotatedPoints.forEach((p, i) => path.setAt(i, new google.maps.LatLng(p.lat, p.lng)));
+      drawPolyRotating = wasRotating;
+      // Update vertex marker positions to match rotated polygon
+      drawPolyVertexMarkers.forEach((marker, i) => {
+        marker.setPosition(new google.maps.LatLng(rotatedPoints[i].lat, rotatedPoints[i].lng));
+      });
+    } else {
+      // When not rotating, update markers to match current drawPolyPoints
+      updateVertexMarkerPositions();
+    }
   }
 
   function cancelDrawPolygon() {
@@ -1631,11 +1814,101 @@
     setStatus('Draw Zone cancelled', false);
   }
 
+  // Helper: show all vertex markers
+  function showVertexMarkers() {
+    drawPolyVertexMarkers.forEach(m => {
+      if (m && m.setMap) m.setMap(map);
+    });
+  }
+
+  // Helper: hide all vertex markers
+  function hideVertexMarkers() {
+    drawPolyVertexMarkers.forEach(m => {
+      if (m && m.setMap) m.setMap(null);
+    });
+  }
+
+  function rebuildVertexMarkers() {
+    if (!drawPolyShape) return;
+
+    // Clear existing markers
+    drawPolyVertexMarkers.forEach(m => m.setMap(null));
+    drawPolyVertexMarkers = [];
+    drawPolyEdgeMarkers.forEach(m => m.setMap(null));
+    drawPolyEdgeMarkers = [];
+
+    const vertexIcon = {
+      path: google.maps.SymbolPath.CIRCLE,
+      scale: 5,
+      fillColor: '#fff',
+      fillOpacity: 0.9,
+      strokeColor: '#a78bfa',
+      strokeWeight: 2,
+    };
+
+    // Create vertex markers (initially hidden)
+    drawPolyPoints.forEach((p, idx) => {
+      const marker = new google.maps.Marker({
+        position: { lat: p.lat, lng: p.lng },
+        map: null,  // Hidden by default
+        icon: vertexIcon,
+        draggable: true,
+        title: `Vertex ${idx + 1}`,
+        zIndex: 10,
+      });
+
+      let dragStartIdx = idx;
+      let dragStartPos = { lat: p.lat, lng: p.lng };
+
+      // Keep markers visible while dragging
+      marker.addListener('mousedown', () => {
+        showVertexMarkers();
+      });
+
+      // On drag, update the point in drawPolyPoints
+      marker.addListener('drag', () => {
+        const pos = marker.getPosition();
+        drawPolyPoints[dragStartIdx] = { lat: pos.lat(), lng: pos.lng() };
+        // Update polygon path (suppress refill by using flag)
+        const path = drawPolyShape.getPath();
+        drawPolyRotating = true;
+        path.setAt(dragStartIdx, new google.maps.LatLng(pos.lat(), pos.lng()));
+        drawPolyRotating = false;
+      });
+
+      // On dragend, refresh panels and rebuild markers
+      marker.addListener('dragend', () => {
+        refreshDrawPanels();
+        rebuildVertexMarkers();
+        hideVertexMarkers();  // Hide after drag ends
+      });
+
+      // On double click, remove the vertex
+      marker.addListener('dblclick', () => {
+        if (drawPolyPoints.length > 3) { // Keep at least 3 vertices
+          drawPolyPoints.splice(idx, 1);
+          const path = drawPolyShape.getPath();
+          path.removeAt(idx);
+          refreshDrawPanels();
+          rebuildVertexMarkers();
+        }
+      });
+
+      drawPolyVertexMarkers.push(marker);
+    });
+  }
+
   function clearDrawnPolygon() {
     if (drawPolyShape) { drawPolyShape.setMap(null); drawPolyShape = null; }
     drawPolyPanels.forEach(p => p.setMap(null));
     drawPolyPanels = [];
+    drawPolyVertexMarkers.forEach(m => m.setMap(null));
+    drawPolyVertexMarkers = [];
+    drawPolyEdgeMarkers.forEach(m => m.setMap(null));
+    drawPolyEdgeMarkers = [];
     drawPolyRotation = 0;
+    drawPolyAzimuth = null; // Reset azimuth for next polygon
+    drawPolyPitch = null; // Reset pitch for next polygon
     drawPolyBounds = { minLat: Infinity, maxLat: -Infinity, minLng: Infinity, maxLng: -Infinity };
     const el = document.getElementById('draw-polygon-summary');
     if (el) el.remove();
@@ -1784,6 +2057,25 @@
     const lat = points.reduce((s, p) => s + p.lat, 0) / points.length;
     const lng = points.reduce((s, p) => s + p.lng, 0) / points.length;
     return { lat, lng };
+  }
+
+  // Helper: find the closest point on a line segment (p1-p2) to a given point
+  function closestPointOnSegment(point, p1, p2) {
+    const dx = p2.lng - p1.lng;
+    const dy = p2.lat - p1.lat;
+    const denom = dx * dx + dy * dy;
+
+    if (denom === 0) {
+      // p1 and p2 are the same point
+      return { lat: p1.lat, lng: p1.lng };
+    }
+
+    // Project point onto the line segment
+    const t = Math.max(0, Math.min(1, ((point.lng - p1.lng) * dx + (point.lat - p1.lat) * dy) / denom));
+    return {
+      lat: p1.lat + t * dy,
+      lng: p1.lng + t * dx,
+    };
   }
 
   function showDrawPolygonSummary(azimuth, pitch, panelCount, segIdx, totalKwh) {
